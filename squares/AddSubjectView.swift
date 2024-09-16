@@ -1,44 +1,88 @@
 import SwiftUI
 
+struct ColorCircle: View {
+    let color: Color
+    let isSelected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            ZStack {
+                Circle()
+                    .fill(color)
+                    .frame(width: 30, height: 30)
+                if isSelected {
+                    Circle()
+                        .stroke(Color.white, lineWidth: 2)
+                        .frame(width: 36, height: 36)
+                }
+            }
+        }
+    }
+}
+
 struct AddSubjectView: View {
     @Environment(\.presentationMode) var presentationMode
     @Binding var subjects: [String]
     @State private var newSubjectName: String = ""
+    @State private var selectedColor: Color = .blue
+    
+    let colors: [Color] = [.blue, .purple, .pink, .orange, .yellow, .green]
     
     var body: some View {
         NavigationView {
-            VStack {
+            VStack(alignment: .leading, spacing: 20) {
+                Text("Subject Name")
+                    .foregroundColor(.white)
+                    .font(.headline)
+                    .padding(.horizontal)
+                
                 TextField("Enter subject name", text: $newSubjectName)
                     .padding()
                     .textFieldStyle(RoundedBorderTextFieldStyle())
                     .frame(maxWidth: .infinity)
                     .padding(.horizontal)
-                    .padding(.top, 20) // Add top padding to move it down a bit
                 
-                    Spacer() // Push remaining content to the bottom
+                Text("Subject Color")
+                    .foregroundColor(.white)
+                    .font(.headline)
+                    .padding(.horizontal)
+                
+                HStack(spacing: 15) {
+                    ForEach(colors, id: \.self) { color in
+                        ColorCircle(color: color, isSelected: selectedColor == color) {
+                            selectedColor = color
+                        }
+                    }
+                }
+                .padding(.horizontal)
+                
+                Spacer()
             }
+            .padding(.top, 20)
             .toolbar {
                 ToolbarItem(placement: .principal) {
                     Text("Add Subject")
-                        .foregroundColor(.white) // Set the title color to white
-                        .font(.headline) // Adjust font size as needed
+                        .foregroundColor(.white)
+                        .font(.headline)
                 }
             }
             .navigationBarItems(
                 leading: Button("Cancel") {
                     presentationMode.wrappedValue.dismiss()
                 }
-                .foregroundColor(.orange), // Orange color for Cancel button
+                .foregroundColor(.orange),
                 trailing: Button(action: {
                     if !newSubjectName.isEmpty {
+                        // Here you might want to save both the name and color
                         subjects.append(newSubjectName)
                         newSubjectName = ""
                         presentationMode.wrappedValue.dismiss()
                     }
                 }) {
                     Text("Create")
-                        .foregroundColor(.orange) // Orange color for Create button
-                        .font(.headline) // Font size
+                        .foregroundColor(.orange)
+                        .font(.headline)
                 }
             )
             .background(Color(red: 14 / 255, green: 17 / 255, blue: 22 / 255))
