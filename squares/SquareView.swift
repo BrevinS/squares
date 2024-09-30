@@ -6,25 +6,25 @@ struct SquareView: View {
     let blocksDropped: Bool
     let index: Int
     let totalItems: Int
+    let isExpanded: Bool
     let onTap: () -> Void
     
     var body: some View {
         Button(action: onTap) {
-            RoundedRectangle(cornerRadius: 8)
-                .fill(Color.green) // Green fill
+            RoundedRectangle(cornerRadius: isExpanded ? 0 : 8)
+                .fill(Color.green)
                 .overlay(
-                    RoundedRectangle(cornerRadius: 8)
-                        .stroke(Color(red: 14 / 255, green: 17 / 255, blue: 22 / 255), lineWidth: 5) // Light grey outline
+                    RoundedRectangle(cornerRadius: isExpanded ? 0 : 8)
+                        .stroke(Color(red: 14 / 255, green: 17 / 255, blue: 22 / 255), lineWidth: isExpanded ? 0 : 5)
                 )
-                .frame(width: 40, height: 40)
-                .overlay(
-                    Text("") // No number displayed on the square
-                )
+                .frame(width: isExpanded ? 41 : 40, height: isExpanded ? 41 : 40)
                 .opacity(blocksDropped && isVisible ? 1 : 0)
                 .animation(
                     isVisible ? Animation.easeIn(duration: 0.15).delay(Double(totalItems - index) * 0.01) : .none,
                     value: blocksDropped
                 )
+                .animation(.easeInOut(duration: 0.2), value: isExpanded)
         }
+        .disabled(isExpanded)
     }
 }
