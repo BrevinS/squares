@@ -1,17 +1,41 @@
 import SwiftUI
 import AuthenticationServices
 
+struct WorkoutSummary: Codable, Identifiable {
+    let id: Int64
+    let distance: Double
+    let date: String
+
+    enum CodingKeys: String, CodingKey {
+        case id = "workout_id"
+        case distance
+        case date = "start_date_local"
+    }
+}
+
+struct WorkoutsResponse: Codable {
+    let workouts: [WorkoutSummary]
+}
+
 class StravaAuthManager: ObservableObject {
     @Published var isAuthenticated = false
-    @Published var athleteId: String?
+    @Published var athleteId: Int64?
+    @Published var workoutSummaries: [WorkoutSummary] = []
     private let clientId = "134458"
     private let redirectUri = "https://www.movemindmap.com"
     private let scope = "activity:read_all"
+    private let apiUrl = "https://iloa3qamek.execute-api.us-west-2.amazonaws.com/prod/workouts" // Replace with your actual API Gateway URL
     
     init() {
-        self.athleteId = UserDefaults.standard.string(forKey: "athleteId")
-        self.isAuthenticated = self.athleteId != nil
-    }
+            if let storedAthleteId = UserDefaults.standard.object(forKey: "athleteId") as? Int64 {
+                self.athleteId = storedAthleteId
+                self.isAuthenticated = true
+                self.fetchWorkoutSummaries()
+            } else {
+                self.athleteId = nil
+                self.isAuthenticated = false
+            }
+        }
 
     func authenticate() {
         let stravaAppURL = URL(string: "strava://oauth/mobile/authorize?client_id=\(clientId)&redirect_uri=\(redirectUri)&response_type=code&approval_prompt=auto&scope=\(scope)")!
@@ -56,7 +80,8 @@ class StravaAuthManager: ObservableObject {
     public func handleCallback(url: URL) {
         guard let components = URLComponents(url: url, resolvingAgainstBaseURL: true),
               let code = components.queryItems?.first(where: { $0.name == "code" })?.value,
-              let athleteId = components.queryItems?.first(where: { $0.name == "athlete_id" })?.value else {
+              let athleteIdString = components.queryItems?.first(where: { $0.name == "athlete_id" })?.value,
+              let athleteId = Int64(athleteIdString) else {
             print("Invalid URL structure or missing parameters")
             return
         }
@@ -64,9 +89,10 @@ class StravaAuthManager: ObservableObject {
         self.storeAthleteId(athleteId)
         self.isAuthenticated = true
         print("Authentication successful. Athlete ID: \(athleteId)")
+        self.fetchWorkoutSummaries()
     }
     
-    private func storeAthleteId(_ athleteId: String) {
+    private func storeAthleteId(_ athleteId: Int64) {
         UserDefaults.standard.set(athleteId, forKey: "athleteId")
         self.athleteId = athleteId
     }
@@ -75,7 +101,68 @@ class StravaAuthManager: ObservableObject {
         UserDefaults.standard.removeObject(forKey: "athleteId")
         self.athleteId = nil
         self.isAuthenticated = false
+        self.workoutSummaries = []
     }
+    
+    func fetchWorkoutSummaries() {
+            guard let athleteId = self.athleteId else {
+                print("No athlete ID available")
+                return
+            }
+            
+            let urlString = "\(apiUrl)?athleteId=\(athleteId)"
+            guard let url = URL(string: urlString) else {
+                print("Invalid URL: \(urlString)")
+                return
+            }
+            
+            print("Fetching workouts from URL: \(urlString)")
+            
+            URLSession.shared.dataTask(with: url) { data, response, error in
+                if let error = error {
+                    print("Error fetching workout summaries: \(error)")
+                    return
+                }
+                
+                guard let httpResponse = response as? HTTPURLResponse else {
+                    print("Invalid response")
+                    return
+                }
+                
+                print("Response status code: \(httpResponse.statusCode)")
+                
+                guard let data = data else {
+                    print("No data received")
+                    return
+                }
+                
+                print("Received data: \(String(data: data, encoding: .utf8) ?? "Unable to convert data to string")")
+                
+                do {
+                    let decodedResponse = try JSONDecoder().decode(WorkoutsResponse.self, from: data)
+                    DispatchQueue.main.async {
+                        self.workoutSummaries = decodedResponse.workouts
+                        print("Decoded \(self.workoutSummaries.count) workout summaries")
+                    }
+                } catch {
+                    print("Error decoding workout summaries: \(error)")
+                    if let decodingError = error as? DecodingError {
+                        switch decodingError {
+                        case .dataCorrupted(let context):
+                            print("Data corrupted: \(context)")
+                        case .keyNotFound(let key, let context):
+                            print("Key '\(key)' not found: \(context)")
+                        case .valueNotFound(let value, let context):
+                            print("Value '\(value)' not found: \(context)")
+                        case .typeMismatch(let type, let context):
+                            print("Type '\(type)' mismatch: \(context)")
+                        @unknown default:
+                            print("Unknown decoding error")
+                        }
+                    }
+                }
+            }.resume()
+        }
 }
 
 struct AddActivity: View {
@@ -90,14 +177,24 @@ struct AddActivity: View {
             if authManager.isAuthenticated {
                 Text("Authentication successful!")
                     .foregroundColor(.green)
-                Text("Athlete ID: \(authManager.athleteId ?? "Not available")")
+                Text("Athlete ID: \(authManager.athleteId ?? 0)")
                     .font(.headline)
                     .foregroundColor(.white)
                     .padding()
                     .background(Color.blue)
                     .cornerRadius(10)
-                Text("Your activities are being processed.")
-                    .foregroundColor(.gray)
+                
+                if authManager.workoutSummaries.isEmpty {
+                    Text("No workouts found")
+                        .foregroundColor(.gray)
+                } else {
+                    List(authManager.workoutSummaries) { summary in
+                        VStack(alignment: .leading) {
+                            Text("Date: \(formatDate(summary.date))")
+                            Text("Distance: \(formatDistance(summary.distance)) km")
+                        }
+                    }
+                }
                 
                 Button("Logout") {
                     authManager.logout()
@@ -118,6 +215,22 @@ struct AddActivity: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(red: 14 / 255, green: 17 / 255, blue: 22 / 255))
+    }
+    
+    func formatDate(_ dateString: String) -> String {
+        let inputFormatter = ISO8601DateFormatter()
+        inputFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        
+        if let date = inputFormatter.date(from: dateString) {
+            let outputFormatter = DateFormatter()
+            outputFormatter.dateFormat = "MMM d, yyyy HH:mm"
+            return outputFormatter.string(from: date)
+        }
+        return dateString
+    }
+    
+    func formatDistance(_ distance: Double) -> String {
+        return String(format: "%.2f", distance / 1000) // Convert meters to kilometers
     }
 }
 
