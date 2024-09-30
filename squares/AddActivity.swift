@@ -3,10 +3,15 @@ import AuthenticationServices
 
 class StravaAuthManager: ObservableObject {
     @Published var isAuthenticated = false
+    @Published var athleteId: String?
     private let clientId = "134458"
     private let redirectUri = "https://www.movemindmap.com"
     private let scope = "activity:read_all"
-    private let lambdaUrl = "https://h65wfsvjy8.execute-api.us-west-2.amazonaws.com/prod/exchange_token"
+    
+    init() {
+        self.athleteId = UserDefaults.standard.string(forKey: "athleteId")
+        self.isAuthenticated = self.athleteId != nil
+    }
 
     func authenticate() {
         let stravaAppURL = URL(string: "strava://oauth/mobile/authorize?client_id=\(clientId)&redirect_uri=\(redirectUri)&response_type=code&approval_prompt=auto&scope=\(scope)")!
@@ -51,30 +56,25 @@ class StravaAuthManager: ObservableObject {
     public func handleCallback(url: URL) {
         guard let components = URLComponents(url: url, resolvingAgainstBaseURL: true),
               let code = components.queryItems?.first(where: { $0.name == "code" })?.value,
-              let scope = components.queryItems?.first(where: { $0.name == "scope" })?.value else {
-            print("Invalid URL structure")
+              let athleteId = components.queryItems?.first(where: { $0.name == "athlete_id" })?.value else {
+            print("Invalid URL structure or missing parameters")
             return
         }
         
-        exchangeToken(code: code, scope: scope)
+        self.storeAthleteId(athleteId)
+        self.isAuthenticated = true
+        print("Authentication successful. Athlete ID: \(athleteId)")
     }
     
-    private func exchangeToken(code: String, scope: String) {
-        let exchangeUrl = "\(lambdaUrl)?code=\(code)&scope=\(scope)"
-        guard let url = URL(string: exchangeUrl) else { return }
-        
-        URLSession.shared.dataTask(with: url) { data, response, error in
-            DispatchQueue.main.async {
-                if let error = error {
-                    print("Error: \(error.localizedDescription)")
-                    return
-                }
-                
-                // Assuming the Lambda function handles token exchange and data fetching
-                self.isAuthenticated = true
-                print("Authentication successful. Data processing initiated on the backend.")
-            }
-        }.resume()
+    private func storeAthleteId(_ athleteId: String) {
+        UserDefaults.standard.set(athleteId, forKey: "athleteId")
+        self.athleteId = athleteId
+    }
+    
+    func logout() {
+        UserDefaults.standard.removeObject(forKey: "athleteId")
+        self.athleteId = nil
+        self.isAuthenticated = false
     }
 }
 
@@ -82,7 +82,7 @@ struct AddActivity: View {
     @EnvironmentObject var authManager: StravaAuthManager
     
     var body: some View {
-        VStack {
+        VStack(spacing: 20) {
             Text("Add Activity")
                 .font(.largeTitle)
                 .foregroundColor(.orange)
@@ -90,8 +90,22 @@ struct AddActivity: View {
             if authManager.isAuthenticated {
                 Text("Authentication successful!")
                     .foregroundColor(.green)
+                Text("Athlete ID: \(authManager.athleteId ?? "Not available")")
+                    .font(.headline)
+                    .foregroundColor(.white)
+                    .padding()
+                    .background(Color.blue)
+                    .cornerRadius(10)
                 Text("Your activities are being processed.")
                     .foregroundColor(.gray)
+                
+                Button("Logout") {
+                    authManager.logout()
+                }
+                .padding()
+                .background(Color.red)
+                .foregroundColor(.white)
+                .cornerRadius(8)
             } else {
                 Button("Connect with Strava") {
                     authManager.authenticate()
