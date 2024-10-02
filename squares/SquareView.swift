@@ -31,7 +31,6 @@ struct SquareView: View {
     
     private var fillColor: Color {
         guard let workout = workout else {
-            // Default color for squares with no workout data
             return Color(red: 23 / 255, green: 27 / 255, blue: 33 / 255)
         }
         

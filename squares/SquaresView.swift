@@ -34,6 +34,48 @@ extension View {
     }
 }
 
+struct WorkoutDetails: Codable {
+    let athlete_id: Int
+    let workout_id: Int
+    let distance: Double
+    let average_heartrate: Double
+    let average_speed: Double
+    let elapsed_time: Int
+    let type: String
+    let elevation_high: String
+    let elevation_low: String
+    let max_heartrate: Int
+    let max_speed: Double
+    let moving_time: Int
+    let name: String
+    let sport_type: String
+    let start_date: String
+    let start_date_local: String
+    let time_zone: String
+    let total_elevation_gain: Double
+
+    init(placeholderData: Bool = false) {
+        self.athlete_id = 0
+        self.workout_id = 0
+        self.distance = 0
+        self.average_heartrate = 0
+        self.average_speed = 0
+        self.elapsed_time = 0
+        self.type = ""
+        self.elevation_high = ""
+        self.elevation_low = ""
+        self.max_heartrate = 0
+        self.max_speed = 0
+        self.moving_time = 0
+        self.name = ""
+        self.sport_type = ""
+        self.start_date = ""
+        self.start_date_local = ""
+        self.time_zone = ""
+        self.total_elevation_gain = 0
+    }
+}
+
 struct SquaresView: View {
     let rows = 52
     let columns = 7
@@ -50,10 +92,13 @@ struct SquaresView: View {
     @State private var expandedRectangleTopIndex: Int = 0
     @State private var shouldScrollToTop = false
     
+    @State private var selectedWorkoutDetails: WorkoutDetails?
+    @EnvironmentObject var authManager: StravaAuthManager
+    
     @FetchRequest(
-            entity: LocalWorkout.entity(),
-            sortDescriptors: [NSSortDescriptor(keyPath: \LocalWorkout.date, ascending: true)]
-        ) var workouts: FetchedResults<LocalWorkout>
+        entity: LocalWorkout.entity(),
+        sortDescriptors: [NSSortDescriptor(keyPath: \LocalWorkout.date, ascending: true)]
+    ) var workouts: FetchedResults<LocalWorkout>
 
     var body: some View {
         ScrollViewReader { scrollProxy in
@@ -71,7 +116,7 @@ struct SquaresView: View {
                                     if isFullyExpanded, let date = selectedDate {
                                         Text(formattedDateHeader(date))
                                             .font(.caption)
-                                            .foregroundColor(Color(hue: 1.0, saturation: 0.002, brightness: 0.794))
+                                            .foregroundColor(.white)
                                             .frame(maxWidth: .infinity, alignment: .center)
                                     } else {
                                         ForEach(0..<columns, id: \.self) { index in
@@ -85,9 +130,24 @@ struct SquaresView: View {
                                 .frame(height: 20)
                                 .padding(.bottom, 5)
 
-                                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 1), count: columns), spacing: 1) {
-                                    ForEach((0..<totalItems).reversed(), id: \.self) { index in
-                                        if !isFullyExpanded || (index >= expandedRectangleTopIndex && index < expandedRectangleTopIndex + (expandedHeight * columns)) {
+                                if isFullyExpanded {
+                                    ZStack {
+                                        RoundedRectangle(cornerRadius: 8)
+                                            .fill(Color.green)
+                                            .frame(height: CGFloat(expandedHeight) * 40)
+                                        
+                                        if selectedWorkoutDetails != nil {
+                                            WorkoutDetailView(details: selectedWorkoutDetails!)
+                                                .padding()
+                                        } else {
+                                            ProgressView()
+                                                .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                                .scaleEffect(2)
+                                        }
+                                    }
+                                } else {
+                                    LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 1), count: columns), spacing: 1) {
+                                        ForEach((0..<totalItems).reversed(), id: \.self) { index in
                                             GeometryReader { geo in
                                                 let isVisible = geo.frame(in: .global).minY < UIScreen.main.bounds.height && geo.frame(in: .global).maxY > 0
                                                 
@@ -99,18 +159,14 @@ struct SquaresView: View {
                                                     totalItems: totalItems,
                                                     isExpanded: expandedSquares.contains(index) || isFullyExpanded,
                                                     workout: workoutFor(date: calculateDate(for: index)),
-                                                    onTap: {
-                                                        selectedDate = calculateDate(for: index)
-                                                        showAlert = true
-                                                        startRippleEffect(from: index)
-                                                    }
+                                                    onTap: { onSquareTap(date: calculateDate(for: index), index: index) }
                                                 )
                                             }
                                             .frame(width: 40, height: 40)
                                         }
                                     }
+                                    .padding(.horizontal, 10)
                                 }
-                                .padding(.horizontal, 10)
                             }
                         }
                         .padding(45)
@@ -125,7 +181,7 @@ struct SquaresView: View {
             .alert(isPresented: $showAlert) {
                 Alert(
                     title: Text("Date: \(formattedDate(selectedDate))"),
-                    message: Text(workoutInfoFor(date: selectedDate)),
+                    message: Text("No workout data available for this date"),
                     dismissButton: .default(Text("OK"))
                 )
             }
@@ -236,6 +292,7 @@ struct SquaresView: View {
             isFullyExpanded = false
             expandedRectangleTopIndex = 0
             shouldScrollToTop = false
+            selectedWorkoutDetails = nil
         }
         
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
@@ -246,23 +303,119 @@ struct SquaresView: View {
     }
     
     private func workoutFor(date: Date) -> LocalWorkout? {
-            let calendar = Calendar.current
-            return workouts.first { calendar.isDate($0.date ?? Date(), inSameDayAs: date) }
+        let calendar = Calendar.current
+        return workouts.first { calendar.isDate($0.date!, inSameDayAs: date) }
+    }
+    
+    private func onSquareTap(date: Date, index: Int) {
+        selectedDate = date
+        if let workout = workoutFor(date: date) {
+            fetchWorkoutDetails(for: workout)
+            startRippleEffect(from: index)
+        } else {
+            showAlert = true
         }
+    }
+    
+    private func fetchWorkoutDetails(for workout: LocalWorkout) {
+        guard let athleteId = authManager.athleteId else { return }
         
-        private func workoutInfoFor(date: Date?) -> String {
-            guard let date = date else { return "No workout data available" }
-            if let workout = workoutFor(date: date) {
-                return String(format: "Distance: %.2f miles", workout.distance / 1609.344)
-            } else {
-                return "No workout data available for this date"
+        let urlString = "https://tier2dqr7a.execute-api.us-west-2.amazonaws.com/prod/workout?athlete_id=\(athleteId)&workout_id=\(workout.id)"
+        guard let url = URL(string: urlString) else { return }
+        
+        URLSession.shared.dataTask(with: url) { data, response, error in
+            if let error = error {
+                print("Error fetching workout details: \(error)")
+                return
             }
-        }
-}
-
-struct SquaresView_Previews: PreviewProvider {
-    static var previews: some View {
-        SquaresView()
-            .environment(\.managedObjectContext, PersistenceController.preview.container.viewContext)
+            
+            guard let data = data else { return }
+            
+            // Print the raw response JSON
+            if let rawResponse = String(data: data, encoding: .utf8) {
+                print("Raw response: \(rawResponse)")
+            } else {
+                print("Unable to convert data to string")
+            }
+            
+            // Set a placeholder workout details to indicate we've received data
+            DispatchQueue.main.async {
+                self.selectedWorkoutDetails = WorkoutDetails(placeholderData: true)
+            }
+        }.resume()
     }
 }
+
+struct WorkoutDetailView: View {
+    let details: WorkoutDetails
+    
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 10) {
+                if details.name.isEmpty {
+                    Text("Workout details printed to console")
+                        .font(.title)
+                        .padding()
+                } else {
+                    Text(details.name)
+                        .font(.title)
+                        .padding(.bottom)
+                    
+                    DetailRow(title: "Type", value: details.sport_type)
+                    DetailRow(title: "Distance", value: String(format: "%.2f km", details.distance / 1000))
+                    DetailRow(title: "Elapsed Time", value: formatDuration(details.elapsed_time))
+                    DetailRow(title: "Moving Time", value: formatDuration(details.moving_time))
+                    DetailRow(title: "Average Speed", value: String(format: "%.2f km/h", details.average_speed * 3.6))
+                    DetailRow(title: "Average Heart Rate", value: String(format: "%.0f bpm", details.average_heartrate))
+                    DetailRow(title: "Max Heart Rate", value: "\(details.max_heartrate) bpm")
+                    DetailRow(title: "Start Date", value: formatDate(details.start_date_local))
+                    DetailRow(title: "Time Zone", value: details.time_zone)
+                }
+            }
+        }
+        .padding()
+        .foregroundColor(.white)
+    }
+    
+    private func formatDuration(_ seconds: Int) -> String {
+        let hours = seconds / 3600
+        let minutes = (seconds % 3600) / 60
+        let remainingSeconds = seconds % 60
+        return String(format: "%02d:%02d:%02d", hours, minutes, remainingSeconds)
+    }
+    
+    private func formatDate(_ dateString: String) -> String {
+            let inputFormatter = ISO8601DateFormatter()
+            if let date = inputFormatter.date(from: dateString) {
+                let outputFormatter = DateFormatter()
+                outputFormatter.dateStyle = .medium
+                outputFormatter.timeStyle = .short
+                return outputFormatter.string(from: date)
+            }
+            return dateString
+        }
+    }
+
+    struct DetailRow: View {
+        let title: String
+        let value: String
+        
+        var body: some View {
+            HStack {
+                Text(title)
+                    .font(.headline)
+                Spacer()
+                Text(value)
+                    .font(.body)
+            }
+            .padding(.vertical, 2)
+        }
+    }
+
+    struct SquaresView_Previews: PreviewProvider {
+        static var previews: some View {
+            SquaresView()
+                .environment(\.managedObjectContext, PersistenceController.preview.container.viewContext)
+                .environmentObject(StravaAuthManager())
+        }
+    }
