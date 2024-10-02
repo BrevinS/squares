@@ -3,6 +3,7 @@ import SwiftUI
 struct ContentView: View {
     @State private var selectedTab = 0
     @EnvironmentObject var authManager: StravaAuthManager
+    @Environment(\.managedObjectContext) private var viewContext
     
     var body: some View {
         NavigationView {
@@ -21,15 +22,14 @@ struct ContentView: View {
                             .font(.largeTitle)
                             .foregroundColor(.orange)
                         SquaresView()
+                            .environment(\.managedObjectContext, viewContext)
                     }
                     .tag(1)
 
                     VStack {
-                        /*Text("Add Activity")
-                            .font(.largeTitle)
-                            .foregroundColor(.orange)*/
                         AddActivity()
                             .environmentObject(authManager)
+                            .environment(\.managedObjectContext, viewContext)
                     }
                     .tag(2)
                 }
@@ -89,5 +89,6 @@ struct ContentView_Previews: PreviewProvider {
     static var previews: some View {
         ContentView()
             .environmentObject(StravaAuthManager())
+            .environment(\.managedObjectContext, PersistenceController.preview.container.viewContext)
     }
 }

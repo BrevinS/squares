@@ -1,4 +1,5 @@
 import SwiftUI
+import CoreData
 
 // Shake gesture recognizer
 extension UIDevice {
@@ -35,106 +36,112 @@ extension View {
 
 struct SquaresView: View {
     let rows = 52
-        let columns = 7
-        let totalItems = 364
-        let daysOfWeek = ["S", "M", "T", "W", "T", "F", "S"]
-        let expandedHeight = 19 // Number of rows in the expanded rectangle
+    let columns = 7
+    let totalItems = 364
+    let daysOfWeek = ["S", "M", "T", "W", "T", "F", "S"]
+    let expandedHeight = 19 // Number of rows in the expanded rectangle
 
-        @State private var blocksDropped = false
-        @State private var selectedDate: Date? = nil
-        @State private var showAlert = false
-        @State private var expandedSquares: Set<Int> = []
-        @State private var isExpanding = false
-        @State private var isFullyExpanded = false
-        @State private var expandedRectangleTopIndex: Int = 0
-        @State private var shouldScrollToTop = false
+    @State private var blocksDropped = false
+    @State private var selectedDate: Date? = nil
+    @State private var showAlert = false
+    @State private var expandedSquares: Set<Int> = []
+    @State private var isExpanding = false
+    @State private var isFullyExpanded = false
+    @State private var expandedRectangleTopIndex: Int = 0
+    @State private var shouldScrollToTop = false
+    
+    @FetchRequest(
+            entity: LocalWorkout.entity(),
+            sortDescriptors: [NSSortDescriptor(keyPath: \LocalWorkout.date, ascending: true)]
+        ) var workouts: FetchedResults<LocalWorkout>
 
-        var body: some View {
-            ScrollViewReader { scrollProxy in
-                        ScrollView {
+    var body: some View {
+        ScrollViewReader { scrollProxy in
+            ScrollView {
+                VStack(spacing: 0) {
+                    Color.clear.frame(height: 1).id("top")
+                    VStack {
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 8)
+                                .stroke(Color(red: 62/255, green: 62/255, blue: 70/255), lineWidth: 2)
+                                .padding(-35)
+                            
                             VStack(spacing: 0) {
-                                Color.clear.frame(height: 1).id("top")
-                                VStack {
-                                    ZStack {
-                                        RoundedRectangle(cornerRadius: 8)
-                                            .stroke(Color(red: 62/255, green: 62/255, blue: 70/255), lineWidth: 2)
-                                            .padding(-35)
-                                        
-                                        VStack(spacing: 0) {
-                                            HStack(spacing: 1) {
-                                                if isFullyExpanded, let date = selectedDate {
-                                                    Text(formattedDateHeader(date))
-                                                        .font(.caption)
-                                                        .foregroundColor(Color(hue: 1.0, saturation: 0.002, brightness: 0.794))
-                                                        .frame(maxWidth: .infinity, alignment: .center)
-                                                } else {
-                                                    ForEach(0..<columns, id: \.self) { index in
-                                                        Text(daysOfWeek[index])
-                                                            .font(.caption)
-                                                            .foregroundColor(Color(hue: 1.0, saturation: 0.002, brightness: 0.794))
-                                                            .frame(width: 39, height: 20, alignment: .center)
-                                                    }
-                                                }
-                                            }
-                                            .frame(height: 20)
-                                            .padding(.bottom, 5)
-
-                                            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 1), count: columns), spacing: 1) {
-                                                ForEach((0..<totalItems).reversed(), id: \.self) { index in
-                                                    if !isFullyExpanded || (index >= expandedRectangleTopIndex && index < expandedRectangleTopIndex + (expandedHeight * columns)) {
-                                                        GeometryReader { geo in
-                                                            let isVisible = geo.frame(in: .global).minY < UIScreen.main.bounds.height && geo.frame(in: .global).maxY > 0
-                                                            
-                                                            SquareView(
-                                                                date: calculateDate(for: index),
-                                                                isVisible: isVisible,
-                                                                blocksDropped: blocksDropped,
-                                                                index: index,
-                                                                totalItems: totalItems,
-                                                                isExpanded: expandedSquares.contains(index) || isFullyExpanded,
-                                                                onTap: {
-                                                                    selectedDate = calculateDate(for: index)
-                                                                    showAlert = true
-                                                                    startRippleEffect(from: index)
-                                                                }
-                                                            )
-                                                        }
-                                                        .frame(width: 40, height: 40)
-                                                    }
-                                                }
-                                            }
-                                            .padding(.horizontal, 10)
+                                HStack(spacing: 1) {
+                                    if isFullyExpanded, let date = selectedDate {
+                                        Text(formattedDateHeader(date))
+                                            .font(.caption)
+                                            .foregroundColor(Color(hue: 1.0, saturation: 0.002, brightness: 0.794))
+                                            .frame(maxWidth: .infinity, alignment: .center)
+                                    } else {
+                                        ForEach(0..<columns, id: \.self) { index in
+                                            Text(daysOfWeek[index])
+                                                .font(.caption)
+                                                .foregroundColor(Color(hue: 1.0, saturation: 0.002, brightness: 0.794))
+                                                .frame(width: 39, height: 20, alignment: .center)
                                         }
                                     }
-                                    .padding(45)
-                                    .background(Color(red: 14 / 255, green: 17 / 255, blue: 22 / 255))
                                 }
-                            }
-                            .onAppear {
-                                blocksDropped = true
+                                .frame(height: 20)
+                                .padding(.bottom, 5)
+
+                                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 1), count: columns), spacing: 1) {
+                                    ForEach((0..<totalItems).reversed(), id: \.self) { index in
+                                        if !isFullyExpanded || (index >= expandedRectangleTopIndex && index < expandedRectangleTopIndex + (expandedHeight * columns)) {
+                                            GeometryReader { geo in
+                                                let isVisible = geo.frame(in: .global).minY < UIScreen.main.bounds.height && geo.frame(in: .global).maxY > 0
+                                                
+                                                SquareView(
+                                                    date: calculateDate(for: index),
+                                                    isVisible: isVisible,
+                                                    blocksDropped: blocksDropped,
+                                                    index: index,
+                                                    totalItems: totalItems,
+                                                    isExpanded: expandedSquares.contains(index) || isFullyExpanded,
+                                                    workout: workoutFor(date: calculateDate(for: index)),
+                                                    onTap: {
+                                                        selectedDate = calculateDate(for: index)
+                                                        showAlert = true
+                                                        startRippleEffect(from: index)
+                                                    }
+                                                )
+                                            }
+                                            .frame(width: 40, height: 40)
+                                        }
+                                    }
+                                }
+                                .padding(.horizontal, 10)
                             }
                         }
+                        .padding(45)
                         .background(Color(red: 14 / 255, green: 17 / 255, blue: 22 / 255))
-                        .alert(isPresented: $showAlert) {
-                            Alert(
-                                title: Text("Date: \(formattedDate(selectedDate))"),
-                                message: Text("This is the note for \(formattedDate(selectedDate))."),
-                                dismissButton: .default(Text("OK"))
-                            )
-                        }
-                        .onChange(of: shouldScrollToTop) { newValue in
-                            if newValue {
-                                withAnimation {
-                                    scrollProxy.scrollTo("top", anchor: .top)
-                                }
-                                shouldScrollToTop = false
-                            }
-                        }
-                        .onShake {
-                            resetView()
-                        }
                     }
                 }
+                .onAppear {
+                    blocksDropped = true
+                }
+            }
+            .background(Color(red: 14 / 255, green: 17 / 255, blue: 22 / 255))
+            .alert(isPresented: $showAlert) {
+                Alert(
+                    title: Text("Date: \(formattedDate(selectedDate))"),
+                    message: Text(workoutInfoFor(date: selectedDate)),
+                    dismissButton: .default(Text("OK"))
+                )
+            }
+            .onChange(of: shouldScrollToTop) { newValue in
+                if newValue {
+                    withAnimation {
+                        scrollProxy.scrollTo("top", anchor: .top)
+                    }
+                    shouldScrollToTop = false
+                }
+            }
+            .onShake {
+                resetView()
+            }
+        }
+    }
     
     private func calculateDate(for index: Int) -> Date {
         let calendar = Calendar.current
@@ -161,7 +168,6 @@ struct SquaresView: View {
         expandedSquares.removeAll()
         isFullyExpanded = false
         
-        // Calculate the top index of the expanded rectangle
         let selectedRow = index / columns
         let topRow = max(0, min(rows - expandedHeight, selectedRow - expandedHeight / 2))
         expandedRectangleTopIndex = topRow * columns
@@ -192,16 +198,16 @@ struct SquaresView: View {
     }
     
     private func completeExpansion() {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            withAnimation(.easeInOut(duration: 0.3)) {
+                self.isFullyExpanded = true
+            }
+            self.isExpanding = false
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                withAnimation(.easeInOut(duration: 0.3)) {
-                    self.isFullyExpanded = true
-                }
-                self.isExpanding = false
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                    self.shouldScrollToTop = true
-                }
+                self.shouldScrollToTop = true
             }
         }
+    }
     
     private func getAdjacentIndices(for index: Int) -> [Int] {
         let row = index / columns
@@ -222,20 +228,34 @@ struct SquaresView: View {
     }
     
     private func resetView() {
+        withAnimation(.easeInOut(duration: 0.3)) {
+            blocksDropped = false
+            selectedDate = nil
+            expandedSquares.removeAll()
+            isExpanding = false
+            isFullyExpanded = false
+            expandedRectangleTopIndex = 0
+            shouldScrollToTop = false
+        }
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
             withAnimation(.easeInOut(duration: 0.3)) {
-                blocksDropped = false
-                selectedDate = nil
-                expandedSquares.removeAll()
-                isExpanding = false
-                isFullyExpanded = false
-                expandedRectangleTopIndex = 0
-                shouldScrollToTop = false
+                blocksDropped = true
             }
-            
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                withAnimation(.easeInOut(duration: 0.3)) {
-                    blocksDropped = true
-                }
+        }
+    }
+    
+    private func workoutFor(date: Date) -> LocalWorkout? {
+            let calendar = Calendar.current
+            return workouts.first { calendar.isDate($0.date ?? Date(), inSameDayAs: date) }
+        }
+        
+        private func workoutInfoFor(date: Date?) -> String {
+            guard let date = date else { return "No workout data available" }
+            if let workout = workoutFor(date: date) {
+                return String(format: "Distance: %.2f miles", workout.distance / 1609.344)
+            } else {
+                return "No workout data available for this date"
             }
         }
 }
@@ -243,5 +263,6 @@ struct SquaresView: View {
 struct SquaresView_Previews: PreviewProvider {
     static var previews: some View {
         SquaresView()
+            .environment(\.managedObjectContext, PersistenceController.preview.container.viewContext)
     }
 }

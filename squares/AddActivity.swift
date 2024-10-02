@@ -1,5 +1,6 @@
 import SwiftUI
 import AuthenticationServices
+import CoreData
 
 struct WorkoutSummary: Codable, Identifiable {
     let id: Int64
@@ -27,15 +28,15 @@ class StravaAuthManager: ObservableObject {
     private let apiUrl = "https://iloa3qamek.execute-api.us-west-2.amazonaws.com/prod/workouts"
     
     init() {
-            if let storedAthleteId = UserDefaults.standard.object(forKey: "athleteId") as? Int64 {
-                self.athleteId = storedAthleteId
-                self.isAuthenticated = true
-                self.fetchWorkoutSummaries()
-            } else {
-                self.athleteId = nil
-                self.isAuthenticated = false
-            }
+        if let storedAthleteId = UserDefaults.standard.object(forKey: "athleteId") as? Int64 {
+            self.athleteId = storedAthleteId
+            self.isAuthenticated = true
+            self.fetchWorkoutSummaries()
+        } else {
+            self.athleteId = nil
+            self.isAuthenticated = false
         }
+    }
 
     func authenticate() {
         let stravaAppURL = URL(string: "strava://oauth/mobile/authorize?client_id=\(clientId)&redirect_uri=\(redirectUri)&response_type=code&approval_prompt=auto&scope=\(scope)")!
@@ -102,67 +103,116 @@ class StravaAuthManager: ObservableObject {
         self.athleteId = nil
         self.isAuthenticated = false
         self.workoutSummaries = []
+        // Clear local workout data
+        clearLocalWorkouts()
     }
     
     func fetchWorkoutSummaries() {
-            guard let athleteId = self.athleteId else {
-                print("No athlete ID available")
+        guard let athleteId = self.athleteId else {
+            print("No athlete ID available")
+            return
+        }
+        
+        let urlString = "\(apiUrl)?athleteId=\(athleteId)"
+        guard let url = URL(string: urlString) else {
+            print("Invalid URL: \(urlString)")
+            return
+        }
+        
+        print("Fetching workouts from URL: \(urlString)")
+        
+        URLSession.shared.dataTask(with: url) { data, response, error in
+            if let error = error {
+                print("Error fetching workout summaries: \(error)")
                 return
             }
             
-            let urlString = "\(apiUrl)?athleteId=\(athleteId)"
-            guard let url = URL(string: urlString) else {
-                print("Invalid URL: \(urlString)")
+            guard let httpResponse = response as? HTTPURLResponse else {
+                print("Invalid response")
                 return
             }
             
-            print("Fetching workouts from URL: \(urlString)")
+            print("Response status code: \(httpResponse.statusCode)")
             
-            URLSession.shared.dataTask(with: url) { data, response, error in
-                if let error = error {
-                    print("Error fetching workout summaries: \(error)")
-                    return
+            guard let data = data else {
+                print("No data received")
+                return
+            }
+            
+            print("Received data: \(String(data: data, encoding: .utf8) ?? "Unable to convert data to string")")
+            
+            do {
+                let decodedResponse = try JSONDecoder().decode(WorkoutsResponse.self, from: data)
+                DispatchQueue.main.async {
+                    self.workoutSummaries = decodedResponse.workouts
+                    print("Decoded \(self.workoutSummaries.count) workout summaries")
+                    self.saveWorkoutsLocally(self.workoutSummaries)
                 }
-                
-                guard let httpResponse = response as? HTTPURLResponse else {
-                    print("Invalid response")
-                    return
+            } catch {
+                print("Error decoding workout summaries: \(error)")
+                if let decodingError = error as? DecodingError {
+                    switch decodingError {
+                    case .dataCorrupted(let context):
+                        print("Data corrupted: \(context)")
+                    case .keyNotFound(let key, let context):
+                        print("Key '\(key)' not found: \(context)")
+                    case .valueNotFound(let value, let context):
+                        print("Value '\(value)' not found: \(context)")
+                    case .typeMismatch(let type, let context):
+                        print("Type '\(type)' mismatch: \(context)")
+                    @unknown default:
+                        print("Unknown decoding error")
+                    }
                 }
-                
-                print("Response status code: \(httpResponse.statusCode)")
-                
-                guard let data = data else {
-                    print("No data received")
-                    return
-                }
-                
-                print("Received data: \(String(data: data, encoding: .utf8) ?? "Unable to convert data to string")")
+            }
+        }.resume()
+    }
+    
+    private func saveWorkoutsLocally(_ workouts: [WorkoutSummary]) {
+            let context = PersistenceController.shared.container.viewContext
+            
+            for workout in workouts {
+                let fetchRequest: NSFetchRequest<LocalWorkout> = LocalWorkout.fetchRequest()
+                fetchRequest.predicate = NSPredicate(format: "id == %lld", workout.id)
                 
                 do {
-                    let decodedResponse = try JSONDecoder().decode(WorkoutsResponse.self, from: data)
-                    DispatchQueue.main.async {
-                        self.workoutSummaries = decodedResponse.workouts
-                        print("Decoded \(self.workoutSummaries.count) workout summaries")
+                    let results = try context.fetch(fetchRequest)
+                    let localWorkout: LocalWorkout
+                    if let existingWorkout = results.first {
+                        localWorkout = existingWorkout
+                    } else {
+                        localWorkout = LocalWorkout(context: context)
+                        localWorkout.id = workout.id
                     }
+                    
+                    localWorkout.distance = workout.distance
+                    localWorkout.date = ISO8601DateFormatter().date(from: workout.date)
                 } catch {
-                    print("Error decoding workout summaries: \(error)")
-                    if let decodingError = error as? DecodingError {
-                        switch decodingError {
-                        case .dataCorrupted(let context):
-                            print("Data corrupted: \(context)")
-                        case .keyNotFound(let key, let context):
-                            print("Key '\(key)' not found: \(context)")
-                        case .valueNotFound(let value, let context):
-                            print("Value '\(value)' not found: \(context)")
-                        case .typeMismatch(let type, let context):
-                            print("Type '\(type)' mismatch: \(context)")
-                        @unknown default:
-                            print("Unknown decoding error")
-                        }
-                    }
+                    print("Error fetching or creating LocalWorkout: \(error)")
                 }
-            }.resume()
+            }
+            
+            do {
+                try context.save()
+                print("Saved \(workouts.count) workouts locally")
+            } catch {
+                print("Failed to save workouts locally: \(error)")
+            }
         }
+    
+    private func clearLocalWorkouts() {
+        let context = PersistenceController.shared.container.viewContext
+        let fetchRequest: NSFetchRequest<NSFetchRequestResult> = LocalWorkout.fetchRequest()
+        let batchDeleteRequest = NSBatchDeleteRequest(fetchRequest: fetchRequest)
+        
+        do {
+            try context.execute(batchDeleteRequest)
+            try context.save()
+            print("Cleared all local workouts")
+        } catch {
+            print("Failed to clear local workouts: \(error)")
+        }
+    }
 }
 
 struct AddActivity: View {
@@ -234,7 +284,10 @@ struct AddActivity: View {
     }
 }
 
-#Preview {
-    AddActivity()
-        .environmentObject(StravaAuthManager())
+struct AddActivity_Previews: PreviewProvider {
+    static var previews: some View {
+        AddActivity()
+            .environmentObject(StravaAuthManager())
+            .environment(\.managedObjectContext, PersistenceController.preview.container.viewContext)
+    }
 }
