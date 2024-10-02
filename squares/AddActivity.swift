@@ -24,7 +24,7 @@ class StravaAuthManager: ObservableObject {
     private let clientId = "134458"
     private let redirectUri = "https://www.movemindmap.com"
     private let scope = "activity:read_all"
-    private let apiUrl = "https://iloa3qamek.execute-api.us-west-2.amazonaws.com/prod/workouts" // Replace with your actual API Gateway URL
+    private let apiUrl = "https://iloa3qamek.execute-api.us-west-2.amazonaws.com/prod/workouts"
     
     init() {
             if let storedAthleteId = UserDefaults.standard.object(forKey: "athleteId") as? Int64 {
@@ -191,7 +191,7 @@ struct AddActivity: View {
                     List(authManager.workoutSummaries) { summary in
                         VStack(alignment: .leading) {
                             Text("Date: \(formatDate(summary.date))")
-                            Text("Distance: \(formatDistance(summary.distance)) km")
+                            Text("Distance: \(formatDistance(summary.distance)) mi")
                         }
                     }
                 }
@@ -230,7 +230,7 @@ struct AddActivity: View {
     }
     
     func formatDistance(_ distance: Double) -> String {
-        return String(format: "%.2f", distance / 1000) // Convert meters to kilometers
+        return String(format: "%.2f", distance / 1609.344) // Convert meters to miles
     }
 }
 
