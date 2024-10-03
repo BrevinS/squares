@@ -1,8 +1,28 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <model type="com.apple.IDECoreDataModeler.DataModel" documentVersion="1.0" lastSavedToolsVersion="22225" systemVersion="23F79" minimumToolsVersion="Automatic" sourceLanguage="Swift" usedWithSwiftData="YES" userDefinedModelVersionIdentifier="">
+    <entity name="DetailedWorkout" representedClassName="DetailedWorkout" syncable="YES" codeGenerationType="class">
+        <attribute name="average_heartrate" optional="YES" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES"/>
+        <attribute name="average_speed" optional="YES" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES"/>
+        <attribute name="elapsed_time" optional="YES" attributeType="Integer 64" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="elevation_high" optional="YES" attributeType="String"/>
+        <attribute name="elevation_low" optional="YES" attributeType="String"/>
+        <attribute name="max_heartrate" optional="YES" attributeType="Integer 64" defaultValueString="0.0" usesScalarValueType="YES"/>
+        <attribute name="max_speed" optional="YES" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES"/>
+        <attribute name="moving_time" optional="YES" attributeType="Integer 64" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="name" optional="YES" attributeType="String"/>
+        <attribute name="sport_type" optional="YES" attributeType="String"/>
+        <attribute name="start_date" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="start_date_local" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="time_zone" optional="YES" attributeType="String"/>
+        <attribute name="total_elevation_gain" optional="YES" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES"/>
+        <attribute name="type" optional="YES" attributeType="String"/>
+        <attribute name="workout_id" optional="YES" attributeType="Integer 64" defaultValueString="0" usesScalarValueType="YES"/>
+        <relationship name="localWorkout" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="LocalWorkout" inverseName="detailedWorkout" inverseEntity="LocalWorkout"/>
+    </entity>
     <entity name="LocalWorkout" representedClassName="LocalWorkout" syncable="YES" codeGenerationType="class">
         <attribute name="date" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
         <attribute name="distance" optional="YES" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES"/>
         <attribute name="id" optional="YES" attributeType="Integer 64" defaultValueString="0" usesScalarValueType="YES"/>
+        <relationship name="detailedWorkout" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="DetailedWorkout" inverseName="localWorkout" inverseEntity="DetailedWorkout"/>
     </entity>
 </model>

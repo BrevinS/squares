@@ -95,14 +95,20 @@ struct SquaresView: View {
     @State private var isFullyExpanded = false
     @State private var expandedRectangleTopIndex: Int = 0
     @State private var shouldScrollToTop = false
+    @State private var selectedLocalWorkout: LocalWorkout?
+
     
     @State private var selectedWorkoutDetails: WorkoutDetails?
     @EnvironmentObject var authManager: StravaAuthManager
     
+    @Environment(\.managedObjectContext) private var viewContext
+        
     @FetchRequest(
         entity: LocalWorkout.entity(),
         sortDescriptors: [NSSortDescriptor(keyPath: \LocalWorkout.date, ascending: true)]
     ) var workouts: FetchedResults<LocalWorkout>
+
+    @State private var selectedDetailedWorkout: DetailedWorkout?
 
     var body: some View {
         ScrollViewReader { scrollProxy in
@@ -135,21 +141,21 @@ struct SquaresView: View {
                                 .padding(.bottom, 5)
 
                                 if isFullyExpanded {
-                                    ZStack {
-                                        RoundedRectangle(cornerRadius: 8)
-                                            .fill(Color.green)
-                                            .frame(height: CGFloat(expandedHeight) * 40)
-                                        
-                                        if selectedWorkoutDetails != nil {
-                                            WorkoutDetailView(details: selectedWorkoutDetails!)
-                                                .padding()
-                                        } else {
-                                            ProgressView()
-                                                .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                                                .scaleEffect(2)
-                                        }
-                                    }
-                                } else {
+                                                ZStack {
+                                                    RoundedRectangle(cornerRadius: 8)
+                                                        .fill(Color.green)
+                                                        .frame(height: CGFloat(expandedHeight) * 40)
+                                                    
+                                                    if let localWorkout = selectedLocalWorkout, let detailedWorkout = localWorkout.detailedWorkout {
+                                                        WorkoutDetailView(details: detailedWorkout)
+                                                            .padding()
+                                                    } else {
+                                                        ProgressView()
+                                                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                                            .scaleEffect(2)
+                                                    }
+                                                }
+                                            } else {
                                     LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 1), count: columns), spacing: 1) {
                                         ForEach((0..<totalItems).reversed(), id: \.self) { index in
                                             GeometryReader { geo in
@@ -322,6 +328,12 @@ struct SquaresView: View {
     }
     
     private func fetchWorkoutDetails(for workout: LocalWorkout) {
+        if workout.detailedWorkout != nil {
+            // Check before the API call to make sure it doesn't already exist.
+            self.selectedLocalWorkout = workout
+            return
+        }
+        
         guard let athleteId = authManager.athleteId else {
             print("Error: No athlete ID available")
             return
@@ -353,56 +365,69 @@ struct SquaresView: View {
             print("Received data: \(String(data: data, encoding: .utf8) ?? "Unable to convert data to string")")
             
             do {
-                let workoutDetails = try JSONDecoder().decode(WorkoutDetails.self, from: data)
-                print("Successfully decoded workout details")
-                DispatchQueue.main.async {
-                    self.selectedWorkoutDetails = workoutDetails
+                if let jsonResult = try JSONSerialization.jsonObject(with: data, options: []) as? [String: Any] {
+                    DispatchQueue.main.async {
+                        self.saveDetailedWorkout(jsonResult, for: workout)
+                    }
+                } else {
+                    print("Error: Unable to parse JSON data")
                 }
             } catch {
                 print("Error decoding workout details: \(error)")
-                if let decodingError = error as? DecodingError {
-                    switch decodingError {
-                    case .dataCorrupted(let context):
-                        print("Data corrupted: \(context)")
-                    case .keyNotFound(let key, let context):
-                        print("Key '\(key)' not found: \(context)")
-                    case .typeMismatch(let type, let context):
-                        print("Type '\(type)' mismatch: \(context)")
-                    case .valueNotFound(let type, let context):
-                        print("Value of type '\(type)' not found: \(context)")
-                    @unknown default:
-                        print("Unknown decoding error")
-                    }
-                }
-                
-                // Attempt to decode as a dictionary to see the structure of the data
-                if let jsonObject = try? JSONSerialization.jsonObject(with: data, options: []),
-                   let jsonDict = jsonObject as? [String: Any] {
-                    print("JSON structure: \(jsonDict)")
-                }
             }
         }.resume()
+    }
+
+    private func saveDetailedWorkout(_ details: [String: Any], for localWorkout: LocalWorkout) {
+        viewContext.perform {
+            let detailedWorkout = DetailedWorkout(context: viewContext)
+            detailedWorkout.average_heartrate = details["average_heartrate"] as? Double ?? 0
+            detailedWorkout.average_speed = details["average_speed"] as? Double ?? 0
+            detailedWorkout.elapsed_time = Int64(details["elapsed_time"] as? Int ?? 0)
+            detailedWorkout.elevation_high = details["elevation_high"] as? String ?? ""
+            detailedWorkout.elevation_low = details["elevation_low"] as? String ?? ""
+            detailedWorkout.max_heartrate = Int64(details["max_heartrate"] as? Int ?? 0)
+            detailedWorkout.max_speed = details["max_speed"] as? Double ?? 0
+            detailedWorkout.moving_time = Int64(details["moving_time"] as? Int ?? 0)
+            detailedWorkout.name = details["name"] as? String ?? ""
+            detailedWorkout.sport_type = details["sport_type"] as? String ?? ""
+            detailedWorkout.start_date = ISO8601DateFormatter().date(from: details["start_date"] as? String ?? "") ?? Date()
+            detailedWorkout.start_date_local = ISO8601DateFormatter().date(from: details["start_date_local"] as? String ?? "") ?? Date()
+            detailedWorkout.time_zone = details["time_zone"] as? String ?? ""
+            detailedWorkout.total_elevation_gain = details["total_elevation_gain"] as? Double ?? 0
+            detailedWorkout.type = details["type"] as? String ?? ""
+            detailedWorkout.workout_id = Int64(details["id"] as? Int ?? 0)
+            
+            localWorkout.detailedWorkout = detailedWorkout
+            
+            do {
+                try viewContext.save()
+                print("Saved detailed workout data")
+                self.selectedLocalWorkout = localWorkout
+            } catch {
+                print("Error saving detailed workout: \(error)")
+            }
+        }
     }
 }
 
 struct WorkoutDetailView: View {
-    let details: WorkoutDetails
+    let details: DetailedWorkout
     
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 10) {
-                Text(details.name)
+                Text(details.name ?? "Unnamed Workout")
                     .font(.title)
                     .padding(.bottom)
                 
                 Group {
-                    DetailRow(title: "Type", value: details.type)
-                    DetailRow(title: "Distance", value: String(format: "%.2f km", details.distance / 1000))
-                    DetailRow(title: "Duration", value: formatDuration(details.elapsed_time))
+                    DetailRow(title: "Type", value: details.type ?? "Unknown")
+                    DetailRow(title: "Duration", value: formatDuration(Int(details.elapsed_time)))
                     DetailRow(title: "Average Speed", value: String(format: "%.2f km/h", details.average_speed * 3.6))
                     DetailRow(title: "Average Heart Rate", value: String(format: "%.1f bpm", details.average_heartrate))
                     DetailRow(title: "Max Heart Rate", value: "\(details.max_heartrate) bpm")
-                    DetailRow(title: "Start Time", value: formatDate(details.start_date_local))
+                    DetailRow(title: "Start Time", value: formatDate(details.start_date_local ?? Date()))
                     DetailRow(title: "Elevation Gain", value: String(format: "%.1f m", details.total_elevation_gain))
                 }
             }
@@ -418,15 +443,11 @@ struct WorkoutDetailView: View {
         return String(format: "%02d:%02d:%02d", hours, minutes, remainingSeconds)
     }
     
-    private func formatDate(_ dateString: String) -> String {
-        let inputFormatter = ISO8601DateFormatter()
-        if let date = inputFormatter.date(from: dateString) {
-            let outputFormatter = DateFormatter()
-            outputFormatter.dateStyle = .medium
-            outputFormatter.timeStyle = .short
-            return outputFormatter.string(from: date)
-        }
-        return dateString
+    private func formatDate(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .short
+        return formatter.string(from: date)
     }
 }
 
