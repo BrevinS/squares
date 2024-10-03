@@ -327,9 +327,8 @@ struct SquaresView: View {
         }
     }
     
-    private func fetchWorkoutDetails(for workout: LocalWorkout) {
-        if workout.detailedWorkout != nil {
-            // Check before the API call to make sure it doesn't already exist.
+    private func fetchWorkoutDetails(for workout: LocalWorkout, forceRefresh: Bool = false) {
+        if !forceRefresh && workout.detailedWorkout != nil {
             self.selectedLocalWorkout = workout
             return
         }
@@ -365,12 +364,21 @@ struct SquaresView: View {
             print("Received data: \(String(data: data, encoding: .utf8) ?? "Unable to convert data to string")")
             
             do {
-                if let jsonResult = try JSONSerialization.jsonObject(with: data, options: []) as? [String: Any] {
-                    DispatchQueue.main.async {
-                        self.saveDetailedWorkout(jsonResult, for: workout)
+                // First, try to clean up the JSON string
+                if var jsonString = String(data: data, encoding: .utf8) {
+                    jsonString = jsonString.replacingOccurrences(of: ": ,", with: ": null,")
+                    jsonString = jsonString.replacingOccurrences(of: ":,", with: ":null,")
+                    
+                    if let cleanedData = jsonString.data(using: .utf8),
+                       let jsonResult = try JSONSerialization.jsonObject(with: cleanedData, options: []) as? [String: Any] {
+                        DispatchQueue.main.async {
+                            self.saveDetailedWorkout(jsonResult, for: workout)
+                        }
+                    } else {
+                        print("Error: Unable to parse cleaned JSON data")
                     }
                 } else {
-                    print("Error: Unable to parse JSON data")
+                    print("Error: Unable to convert data to string")
                 }
             } catch {
                 print("Error decoding workout details: \(error)")
@@ -391,12 +399,12 @@ struct SquaresView: View {
             detailedWorkout.moving_time = Int64(details["moving_time"] as? Int ?? 0)
             detailedWorkout.name = details["name"] as? String ?? ""
             detailedWorkout.sport_type = details["sport_type"] as? String ?? ""
-            detailedWorkout.start_date = ISO8601DateFormatter().date(from: details["start_date"] as? String ?? "") ?? Date()
-            detailedWorkout.start_date_local = ISO8601DateFormatter().date(from: details["start_date_local"] as? String ?? "") ?? Date()
+            detailedWorkout.start_date = (details["start_date"] as? String).flatMap { ISO8601DateFormatter().date(from: $0) } ?? Date()
+            detailedWorkout.start_date_local = (details["start_date_local"] as? String).flatMap { ISO8601DateFormatter().date(from: $0) } ?? Date()
             detailedWorkout.time_zone = details["time_zone"] as? String ?? ""
             detailedWorkout.total_elevation_gain = details["total_elevation_gain"] as? Double ?? 0
             detailedWorkout.type = details["type"] as? String ?? ""
-            detailedWorkout.workout_id = Int64(details["id"] as? Int ?? 0)
+            detailedWorkout.workout_id = Int64(details["workout_id"] as? Int ?? 0)
             
             localWorkout.detailedWorkout = detailedWorkout
             
