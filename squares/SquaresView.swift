@@ -53,6 +53,9 @@ struct WorkoutDetails: Codable {
     let start_date_local: String
     let time_zone: String
     let total_elevation_gain: Double
+    
+    // Add a new property to store the raw JSON string
+    var rawJSON: String?
 
     init(placeholderData: Bool = false) {
         self.athlete_id = 0
@@ -73,6 +76,7 @@ struct WorkoutDetails: Codable {
         self.start_date_local = ""
         self.time_zone = ""
         self.total_elevation_gain = 0
+        self.rawJSON = nil
     }
 }
 
@@ -318,10 +322,18 @@ struct SquaresView: View {
     }
     
     private func fetchWorkoutDetails(for workout: LocalWorkout) {
-        guard let athleteId = authManager.athleteId else { return }
+        guard let athleteId = authManager.athleteId else {
+            print("Error: No athlete ID available")
+            return
+        }
         
         let urlString = "https://tier2dqr7a.execute-api.us-west-2.amazonaws.com/prod/workout?athlete_id=\(athleteId)&workout_id=\(workout.id)"
-        guard let url = URL(string: urlString) else { return }
+        guard let url = URL(string: urlString) else {
+            print("Error: Invalid URL")
+            return
+        }
+        
+        print("Fetching workout details from URL: \(urlString)")
         
         URLSession.shared.dataTask(with: url) { data, response, error in
             if let error = error {
@@ -329,18 +341,45 @@ struct SquaresView: View {
                 return
             }
             
-            guard let data = data else { return }
-            
-            // Print the raw response JSON
-            if let rawResponse = String(data: data, encoding: .utf8) {
-                print("Raw response: \(rawResponse)")
-            } else {
-                print("Unable to convert data to string")
+            if let httpResponse = response as? HTTPURLResponse {
+                print("HTTP Response Status code: \(httpResponse.statusCode)")
             }
             
-            // Set a placeholder workout details to indicate we've received data
-            DispatchQueue.main.async {
-                self.selectedWorkoutDetails = WorkoutDetails(placeholderData: true)
+            guard let data = data else {
+                print("Error: No data received")
+                return
+            }
+            
+            print("Received data: \(String(data: data, encoding: .utf8) ?? "Unable to convert data to string")")
+            
+            do {
+                let workoutDetails = try JSONDecoder().decode(WorkoutDetails.self, from: data)
+                print("Successfully decoded workout details")
+                DispatchQueue.main.async {
+                    self.selectedWorkoutDetails = workoutDetails
+                }
+            } catch {
+                print("Error decoding workout details: \(error)")
+                if let decodingError = error as? DecodingError {
+                    switch decodingError {
+                    case .dataCorrupted(let context):
+                        print("Data corrupted: \(context)")
+                    case .keyNotFound(let key, let context):
+                        print("Key '\(key)' not found: \(context)")
+                    case .typeMismatch(let type, let context):
+                        print("Type '\(type)' mismatch: \(context)")
+                    case .valueNotFound(let type, let context):
+                        print("Value of type '\(type)' not found: \(context)")
+                    @unknown default:
+                        print("Unknown decoding error")
+                    }
+                }
+                
+                // Attempt to decode as a dictionary to see the structure of the data
+                if let jsonObject = try? JSONSerialization.jsonObject(with: data, options: []),
+                   let jsonDict = jsonObject as? [String: Any] {
+                    print("JSON structure: \(jsonDict)")
+                }
             }
         }.resume()
     }
@@ -352,24 +391,19 @@ struct WorkoutDetailView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 10) {
-                if details.name.isEmpty {
-                    Text("Workout details printed to console")
-                        .font(.title)
-                        .padding()
-                } else {
-                    Text(details.name)
-                        .font(.title)
-                        .padding(.bottom)
-                    
-                    DetailRow(title: "Type", value: details.sport_type)
+                Text(details.name)
+                    .font(.title)
+                    .padding(.bottom)
+                
+                Group {
+                    DetailRow(title: "Type", value: details.type)
                     DetailRow(title: "Distance", value: String(format: "%.2f km", details.distance / 1000))
-                    DetailRow(title: "Elapsed Time", value: formatDuration(details.elapsed_time))
-                    DetailRow(title: "Moving Time", value: formatDuration(details.moving_time))
+                    DetailRow(title: "Duration", value: formatDuration(details.elapsed_time))
                     DetailRow(title: "Average Speed", value: String(format: "%.2f km/h", details.average_speed * 3.6))
-                    DetailRow(title: "Average Heart Rate", value: String(format: "%.0f bpm", details.average_heartrate))
+                    DetailRow(title: "Average Heart Rate", value: String(format: "%.1f bpm", details.average_heartrate))
                     DetailRow(title: "Max Heart Rate", value: "\(details.max_heartrate) bpm")
-                    DetailRow(title: "Start Date", value: formatDate(details.start_date_local))
-                    DetailRow(title: "Time Zone", value: details.time_zone)
+                    DetailRow(title: "Start Time", value: formatDate(details.start_date_local))
+                    DetailRow(title: "Elevation Gain", value: String(format: "%.1f m", details.total_elevation_gain))
                 }
             }
         }
@@ -385,37 +419,37 @@ struct WorkoutDetailView: View {
     }
     
     private func formatDate(_ dateString: String) -> String {
-            let inputFormatter = ISO8601DateFormatter()
-            if let date = inputFormatter.date(from: dateString) {
-                let outputFormatter = DateFormatter()
-                outputFormatter.dateStyle = .medium
-                outputFormatter.timeStyle = .short
-                return outputFormatter.string(from: date)
-            }
-            return dateString
+        let inputFormatter = ISO8601DateFormatter()
+        if let date = inputFormatter.date(from: dateString) {
+            let outputFormatter = DateFormatter()
+            outputFormatter.dateStyle = .medium
+            outputFormatter.timeStyle = .short
+            return outputFormatter.string(from: date)
         }
+        return dateString
     }
+}
 
-    struct DetailRow: View {
-        let title: String
-        let value: String
-        
-        var body: some View {
-            HStack {
-                Text(title)
-                    .font(.headline)
-                Spacer()
-                Text(value)
-                    .font(.body)
-            }
-            .padding(.vertical, 2)
+struct DetailRow: View {
+    let title: String
+    let value: String
+    
+    var body: some View {
+        HStack {
+            Text(title)
+                .font(.headline)
+            Spacer()
+            Text(value)
+                .font(.body)
         }
+        .padding(.vertical, 4)
     }
+}
 
-    struct SquaresView_Previews: PreviewProvider {
-        static var previews: some View {
-            SquaresView()
-                .environment(\.managedObjectContext, PersistenceController.preview.container.viewContext)
-                .environmentObject(StravaAuthManager())
-        }
+struct SquaresView_Previews: PreviewProvider {
+    static var previews: some View {
+        SquaresView()
+            .environment(\.managedObjectContext, PersistenceController.preview.container.viewContext)
+            .environmentObject(StravaAuthManager())
     }
+}
