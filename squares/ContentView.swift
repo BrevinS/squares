@@ -32,6 +32,11 @@ struct ContentView: View {
                             .environment(\.managedObjectContext, viewContext)
                     }
                     .tag(2)
+
+                    VStack {
+                        NoteGraphView()
+                    }
+                    .tag(3)
                 }
                 .tabViewStyle(PageTabViewStyle(indexDisplayMode: .never))
                 
@@ -72,6 +77,20 @@ struct ContentView: View {
                                 .font(.system(size: 30))
                                 .foregroundColor(Color(.systemOrange))
                             if selectedTab == 2 {
+                                // WHEN SELECTED
+                            }
+                        }
+                    }
+                    .frame(maxWidth: .infinity)
+
+                    Button(action: {
+                        selectedTab = 3
+                    }) {
+                        VStack {
+                            Image(systemName: "chart.bar.xaxis")
+                                .font(.system(size: 30))
+                                .foregroundColor(Color(.systemOrange))
+                            if selectedTab == 3 {
                                 // WHEN SELECTED
                             }
                         }
