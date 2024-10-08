@@ -97,7 +97,6 @@ struct SquaresView: View {
     @State private var shouldScrollToTop = false
     @State private var selectedLocalWorkout: LocalWorkout?
 
-    
     @State private var selectedWorkoutDetails: WorkoutDetails?
     @EnvironmentObject var authManager: StravaAuthManager
     
@@ -107,8 +106,6 @@ struct SquaresView: View {
         entity: LocalWorkout.entity(),
         sortDescriptors: [NSSortDescriptor(keyPath: \LocalWorkout.date, ascending: true)]
     ) var workouts: FetchedResults<LocalWorkout>
-
-    @State private var selectedDetailedWorkout: DetailedWorkout?
 
     var body: some View {
         ScrollViewReader { scrollProxy in
@@ -141,21 +138,21 @@ struct SquaresView: View {
                                 .padding(.bottom, 5)
 
                                 if isFullyExpanded {
-                                                ZStack {
-                                                    RoundedRectangle(cornerRadius: 8)
-                                                        .fill(Color.green)
-                                                        .frame(height: CGFloat(expandedHeight) * 40)
-                                                    
-                                                    if let localWorkout = selectedLocalWorkout, let detailedWorkout = localWorkout.detailedWorkout {
-                                                        WorkoutDetailView(details: detailedWorkout)
-                                                            .padding()
-                                                    } else {
-                                                        ProgressView()
-                                                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                                                            .scaleEffect(2)
-                                                    }
-                                                }
-                                            } else {
+                                    ZStack {
+                                        RoundedRectangle(cornerRadius: 8)
+                                            .fill(Color.green)
+                                            .frame(height: CGFloat(expandedHeight) * 40)
+                                        
+                                        if let localWorkout = selectedLocalWorkout {
+                                            WorkoutDetailView(localWorkout: localWorkout)
+                                                .padding()
+                                        } else {
+                                            ProgressView()
+                                                .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                                .scaleEffect(2)
+                                        }
+                                    }
+                                } else {
                                     LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 1), count: columns), spacing: 1) {
                                         ForEach((0..<totalItems).reversed(), id: \.self) { index in
                                             GeometryReader { geo in
@@ -387,93 +384,117 @@ struct SquaresView: View {
     }
 
     private func saveDetailedWorkout(_ details: [String: Any], for localWorkout: LocalWorkout) {
-        viewContext.perform {
-            let detailedWorkout = DetailedWorkout(context: viewContext)
-            detailedWorkout.average_heartrate = details["average_heartrate"] as? Double ?? 0
-            detailedWorkout.average_speed = details["average_speed"] as? Double ?? 0
-            detailedWorkout.elapsed_time = Int64(details["elapsed_time"] as? Int ?? 0)
-            detailedWorkout.elevation_high = details["elevation_high"] as? String ?? ""
-            detailedWorkout.elevation_low = details["elevation_low"] as? String ?? ""
-            detailedWorkout.max_heartrate = Int64(details["max_heartrate"] as? Int ?? 0)
-            detailedWorkout.max_speed = details["max_speed"] as? Double ?? 0
-            detailedWorkout.moving_time = Int64(details["moving_time"] as? Int ?? 0)
-            detailedWorkout.name = details["name"] as? String ?? ""
-            detailedWorkout.sport_type = details["sport_type"] as? String ?? ""
-            detailedWorkout.start_date = (details["start_date"] as? String).flatMap { ISO8601DateFormatter().date(from: $0) } ?? Date()
-            detailedWorkout.start_date_local = (details["start_date_local"] as? String).flatMap { ISO8601DateFormatter().date(from: $0) } ?? Date()
-            detailedWorkout.time_zone = details["time_zone"] as? String ?? ""
-            detailedWorkout.total_elevation_gain = details["total_elevation_gain"] as? Double ?? 0
-            detailedWorkout.type = details["type"] as? String ?? ""
-            detailedWorkout.workout_id = Int64(details["workout_id"] as? Int ?? 0)
-            
-            localWorkout.detailedWorkout = detailedWorkout
-            
-            do {
-                try viewContext.save()
-                print("Saved detailed workout data")
-                self.selectedLocalWorkout = localWorkout
-            } catch {
-                print("Error saving detailed workout: \(error)")
-            }
-        }
-    }
-}
-
-struct WorkoutDetailView: View {
-    let details: DetailedWorkout
-    
-    var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 10) {
-                Text(details.name ?? "Unnamed Workout")
-                    .font(.title)
-                    .padding(.bottom)
+            viewContext.perform {
+                let detailedWorkout = DetailedWorkout(context: viewContext)
+                detailedWorkout.average_heartrate = details["average_heartrate"] as? Double ?? 0
+                detailedWorkout.average_speed = details["average_speed"] as? Double ?? 0
+                detailedWorkout.elapsed_time = Int64(details["elapsed_time"] as? Int ?? 0)
+                detailedWorkout.elevation_high = details["elevation_high"] as? String ?? ""
+                detailedWorkout.elevation_low = details["elevation_low"] as? String ?? ""
+                detailedWorkout.max_heartrate = Int64(details["max_heartrate"] as? Int ?? 0)
+                detailedWorkout.max_speed = details["max_speed"] as? Double ?? 0
+                detailedWorkout.moving_time = Int64(details["moving_time"] as? Int ?? 0)
+                detailedWorkout.name = details["name"] as? String ?? ""
+                detailedWorkout.sport_type = details["sport_type"] as? String ?? ""
+                detailedWorkout.start_date = (details["start_date"] as? String).flatMap { ISO8601DateFormatter().date(from: $0) } ?? Date()
+                detailedWorkout.start_date_local = (details["start_date_local"] as? String).flatMap { ISO8601DateFormatter().date(from: $0) } ?? Date()
+                detailedWorkout.time_zone = details["time_zone"] as? String ?? ""
+                detailedWorkout.total_elevation_gain = details["total_elevation_gain"] as? Double ?? 0
+                detailedWorkout.type = details["type"] as? String ?? ""
+                detailedWorkout.workout_id = Int64(details["workout_id"] as? Int ?? 0)
                 
-                Group {
-                    DetailRow(title: "Type", value: details.type ?? "Unknown")
-                    DetailRow(title: "Duration", value: formatDuration(Int(details.elapsed_time)))
-                    DetailRow(title: "Average Speed", value: String(format: "%.2f km/h", details.average_speed * 3.6))
-                    DetailRow(title: "Average Heart Rate", value: String(format: "%.1f bpm", details.average_heartrate))
-                    DetailRow(title: "Max Heart Rate", value: "\(details.max_heartrate) bpm")
-                    DetailRow(title: "Start Time", value: formatDate(details.start_date_local ?? Date()))
-                    DetailRow(title: "Elevation Gain", value: String(format: "%.1f m", details.total_elevation_gain))
+                localWorkout.detailedWorkout = detailedWorkout
+                
+                do {
+                    try viewContext.save()
+                    print("Saved detailed workout data")
+                    self.selectedLocalWorkout = localWorkout
+                } catch {
+                    print("Error saving detailed workout: \(error)")
                 }
             }
         }
-        .padding()
-        .foregroundColor(.white)
     }
-    
-    private func formatDuration(_ seconds: Int) -> String {
-        let hours = seconds / 3600
-        let minutes = (seconds % 3600) / 60
-        let remainingSeconds = seconds % 60
-        return String(format: "%02d:%02d:%02d", hours, minutes, remainingSeconds)
-    }
-    
-    private func formatDate(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.dateStyle = .medium
-        formatter.timeStyle = .short
-        return formatter.string(from: date)
-    }
-}
 
-struct DetailRow: View {
-    let title: String
-    let value: String
-    
-    var body: some View {
-        HStack {
-            Text(title)
-                .font(.headline)
-            Spacer()
-            Text(value)
-                .font(.body)
+    struct WorkoutDetailView: View {
+        let localWorkout: LocalWorkout
+        
+        var body: some View {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text(localWorkout.detailedWorkout?.name ?? "Unnamed Workout")
+                        .font(.title)
+                        .padding(.bottom)
+                    
+                    Group {
+                        DetailRow(title: "Type", value: localWorkout.detailedWorkout?.type ?? "Unknown")
+                        DetailRow(title: "Duration", value: formatDuration(Int(localWorkout.detailedWorkout?.elapsed_time ?? 0)))
+                        DetailRow(title: "Distance", value: String(format: "%.2f miles", localWorkout.distance / 1609.344))
+                        if let avgSpeed = localWorkout.detailedWorkout?.average_speed {
+                            DetailRow(title: "Average Speed", value: String(format: "%.2f mph", avgSpeed * 2.23694))
+                        }
+                        if let avgHeartRate = localWorkout.detailedWorkout?.average_heartrate, avgHeartRate > 0 {
+                            DetailRow(title: "Average Heart Rate", value: String(format: "%.0f bpm", avgHeartRate))
+                        }
+                        if let maxHeartRate = localWorkout.detailedWorkout?.max_heartrate, maxHeartRate > 0 {
+                            DetailRow(title: "Max Heart Rate", value: "\(maxHeartRate) bpm")
+                        }
+                        DetailRow(title: "Start Time", value: formatDate(localWorkout.date ?? Date()))
+                        if let elevationGain = localWorkout.detailedWorkout?.total_elevation_gain {
+                            DetailRow(title: "Elevation Gain", value: String(format: "%.1f ft", elevationGain * 3.28084))
+                        }
+                        if let elevLow = localWorkout.detailedWorkout?.elevation_low, !elevLow.isEmpty {
+                            DetailRow(title: "Elevation Low", value: String(format: "%.1f ft", (Double(elevLow) ?? 0) * 3.28084))
+                        }
+                        if let elevHigh = localWorkout.detailedWorkout?.elevation_high, !elevHigh.isEmpty {
+                            DetailRow(title: "Elevation High", value: String(format: "%.1f ft", (Double(elevHigh) ?? 0) * 3.28084))
+                        }
+                        if let movingTime = localWorkout.detailedWorkout?.moving_time {
+                            DetailRow(title: "Moving Time", value: formatDuration(Int(movingTime)))
+                        }
+                        if let maxSpeed = localWorkout.detailedWorkout?.max_speed {
+                            DetailRow(title: "Max Speed", value: String(format: "%.2f mph", maxSpeed * 2.23694))
+                        }
+                        if let timeZone = localWorkout.detailedWorkout?.time_zone {
+                            DetailRow(title: "Time Zone", value: timeZone)
+                        }
+                    }
+                }
+            }
+            .padding()
+            .foregroundColor(.white)
         }
-        .padding(.vertical, 4)
+        
+        private func formatDuration(_ seconds: Int) -> String {
+            let hours = seconds / 3600
+            let minutes = (seconds % 3600) / 60
+            let remainingSeconds = seconds % 60
+            return String(format: "%02d:%02d:%02d", hours, minutes, remainingSeconds)
+        }
+        
+        private func formatDate(_ date: Date) -> String {
+            let formatter = DateFormatter()
+            formatter.dateStyle = .medium
+            formatter.timeStyle = .short
+            return formatter.string(from: date)
+        }
     }
-}
+
+    struct DetailRow: View {
+        let title: String
+        let value: String
+        
+        var body: some View {
+            HStack {
+                Text(title)
+                    .font(.headline)
+                Spacer()
+                Text(value)
+                    .font(.body)
+            }
+            .padding(.vertical, 4)
+        }
+    }
 
 struct SquaresView_Previews: PreviewProvider {
     static var previews: some View {
