@@ -169,36 +169,54 @@ class StravaAuthManager: ObservableObject {
     }
     
     private func saveWorkoutsLocally(_ workouts: [WorkoutSummary]) {
-            let context = PersistenceController.shared.container.viewContext
-            
-            for workout in workouts {
-                let fetchRequest: NSFetchRequest<LocalWorkout> = LocalWorkout.fetchRequest()
-                fetchRequest.predicate = NSPredicate(format: "id == %lld", workout.id)
-                
-                do {
-                    let results = try context.fetch(fetchRequest)
-                    let localWorkout: LocalWorkout
-                    if let existingWorkout = results.first {
-                        localWorkout = existingWorkout
-                    } else {
-                        localWorkout = LocalWorkout(context: context)
-                        localWorkout.id = workout.id
-                    }
-                    
-                    localWorkout.distance = workout.distance
-                    localWorkout.date = ISO8601DateFormatter().date(from: workout.date)
-                } catch {
-                    print("Error fetching or creating LocalWorkout: \(error)")
-                }
-            }
+        let context = PersistenceController.shared.container.viewContext
+        var newWorkoutsCount = 0
+        var updatedWorkoutsCount = 0
+        var unchangedWorkoutsCount = 0
+        
+        for workout in workouts {
+            let fetchRequest: NSFetchRequest<LocalWorkout> = LocalWorkout.fetchRequest()
+            fetchRequest.predicate = NSPredicate(format: "id == %lld", workout.id)
             
             do {
-                try context.save()
-                print("Saved \(workouts.count) workouts locally")
+                let results = try context.fetch(fetchRequest)
+                if let existingWorkout = results.first {
+                    // Workout already exists, check if it needs updating
+                    if existingWorkout.distance != workout.distance || existingWorkout.date != ISO8601DateFormatter().date(from: workout.date) {
+                        existingWorkout.distance = workout.distance
+                        existingWorkout.date = ISO8601DateFormatter().date(from: workout.date)
+                        updatedWorkoutsCount += 1
+                        print("Updated existing workout: ID \(workout.id)")
+                    } else {
+                        unchangedWorkoutsCount += 1
+                        print("Workout found on device, no update needed: ID \(workout.id)")
+                    }
+                } else {
+                    // Create new workout
+                    let localWorkout = LocalWorkout(context: context)
+                    localWorkout.id = workout.id
+                    localWorkout.distance = workout.distance
+                    localWorkout.date = ISO8601DateFormatter().date(from: workout.date)
+                    newWorkoutsCount += 1
+                    print("Created new workout: ID \(workout.id)")
+                }
             } catch {
-                print("Failed to save workouts locally: \(error)")
+                print("Error processing workout ID \(workout.id): \(error)")
             }
         }
+        
+        do {
+            if context.hasChanges {
+                try context.save()
+                print("Core Data context saved successfully")
+            } else {
+                print("No changes to save in Core Data context")
+            }
+            print("Summary: \(newWorkoutsCount) new, \(updatedWorkoutsCount) updated, \(unchangedWorkoutsCount) unchanged")
+        } catch {
+            print("Failed to save workouts locally: \(error)")
+        }
+    }
     
     private func clearLocalWorkouts() {
         let context = PersistenceController.shared.container.viewContext

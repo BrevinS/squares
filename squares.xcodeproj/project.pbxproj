@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		1E1711772CB4D04700CB574D /* ShakeGesture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E1711762CB4D04700CB574D /* ShakeGesture.swift */; };
+		1E1711792CB4D08700CB574D /* WorkoutDetails.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E1711782CB4D08700CB574D /* WorkoutDetails.swift */; };
 		1E49FFC42C93845F00BB140C /* squaresApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E49FFC32C93845F00BB140C /* squaresApp.swift */; };
 		1E49FFC62C93845F00BB140C /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E49FFC52C93845F00BB140C /* ContentView.swift */; };
 		1E49FFC82C93846100BB140C /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 1E49FFC72C93846100BB140C /* Assets.xcassets */; };
@@ -22,6 +24,8 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		1E1711762CB4D04700CB574D /* ShakeGesture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShakeGesture.swift; sourceTree = "<group>"; };
+		1E1711782CB4D08700CB574D /* WorkoutDetails.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutDetails.swift; sourceTree = "<group>"; };
 		1E49FFC02C93845F00BB140C /* squares.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = squares.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		1E49FFC32C93845F00BB140C /* squaresApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = squaresApp.swift; sourceTree = "<group>"; };
 		1E49FFC52C93845F00BB140C /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
@@ -81,6 +85,8 @@
 				1E5B9E132CAA4CF600B60AD5 /* DayView.swift */,
 				1E9081882CACFA40004CB1D2 /* Persistence.swift */,
 				1E90818A2CACFED2004CB1D2 /* LocalWorkout.xcdatamodeld */,
+				1E1711762CB4D04700CB574D /* ShakeGesture.swift */,
+				1E1711782CB4D08700CB574D /* WorkoutDetails.swift */,
 			);
 			path = squares;
 			sourceTree = "<group>";
@@ -171,7 +177,9 @@
 				1E8B3FEA2C93964800A9BF3F /* SquaresView.swift in Sources */,
 				1EEAE1002C94C14400497F8F /* SubjectsPage.swift in Sources */,
 				1EEAE0F62C948E7300497F8F /* AddActivity.swift in Sources */,
+				1E1711792CB4D08700CB574D /* WorkoutDetails.swift in Sources */,
 				1EEAE1022C94C16300497F8F /* AddSubjectView.swift in Sources */,
+				1E1711772CB4D04700CB574D /* ShakeGesture.swift in Sources */,
 				1E49FFC42C93845F00BB140C /* squaresApp.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
