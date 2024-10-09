@@ -1,5 +1,10 @@
 import SwiftUI
-import Combine
+import MetalKit
+
+struct Vertex {
+    var position: SIMD2<Float>
+    var color: SIMD4<Float>
+}
 
 struct Note: Identifiable {
     let id = UUID()
@@ -15,7 +20,7 @@ struct NoteNode: Identifiable {
 }
 
 struct NoteView: View {
-    var note: Note
+    let note: Note
     
     var body: some View {
         VStack {
@@ -30,113 +35,150 @@ struct NoteView: View {
     }
 }
 
-struct ConnectionLine: Shape {
-    var from: CGPoint
-    var to: CGPoint
+struct MetalView: UIViewRepresentable {
+    @ObservedObject var viewModel: NoteGraphViewModel
+    @Binding var offset: CGSize
+    @Binding var scale: CGFloat
     
-    func path(in rect: CGRect) -> Path {
-        var path = Path()
-        path.move(to: from)
-        path.addLine(to: to)
-        return path
+    func makeUIView(context: Context) -> MTKView {
+        let mtkView = MTKView()
+        mtkView.enableSetNeedsDisplay = true
+        if let metalRenderer = MetalGraphRenderer(metalView: mtkView) {
+            context.coordinator.renderer = metalRenderer
+        } else {
+            print("Failed to initialize Metal renderer")
+        }
+        return mtkView
+    }
+    
+    func updateUIView(_ uiView: MTKView, context: Context) {
+        context.coordinator.update(viewModel: viewModel, offset: offset, scale: scale)
+        uiView.setNeedsDisplay()
+    }
+    
+    func makeCoordinator() -> Coordinator {
+        Coordinator(self)
+    }
+    
+    class Coordinator: NSObject {
+        var parent: MetalView
+        var renderer: MetalGraphRenderer?
+        
+        init(_ parent: MetalView) {
+            self.parent = parent
+        }
+        
+        func update(viewModel: NoteGraphViewModel, offset: CGSize, scale: CGFloat) {
+            renderer?.updateNodes(viewModel.nodes, connections: viewModel.getConnections())
+            renderer?.setOffset(CGPoint(x: offset.width, y: offset.height))
+            renderer?.setScale(scale)
+        }
     }
 }
 
 struct NoteGraphView: View {
     @StateObject private var viewModel = NoteGraphViewModel()
+    @State private var offset: CGSize = .zero
+    @State private var scale: CGFloat = 0.5
     @State private var selectedNote: Note? = nil
-    @State private var zoomScale: CGFloat = 1.0
-    @State private var dragOffset: CGSize = .zero
+    @State private var isAddingNote: Bool = false
+    @State private var newNoteTitle: String = ""
+    @State private var newNoteContent: String = ""
     
     var body: some View {
         ZStack {
-            Color(red: 14 / 255, green: 17 / 255, blue: 22 / 255).edgesIgnoringSafeArea(.all)
-            
-            VStack {
-                Text("Note Graph")
-                    .font(.largeTitle)
-                    .foregroundColor(.orange)
-                    .padding()
-                
-                ZStack {
-                    // Draw connections between nodes
-                    ForEach(viewModel.notes) { note in
-                        ForEach(note.connections, id: \.self) { connectionId in
-                            if let fromNode = viewModel.nodes.first(where: { $0.id == note.id }),
-                               let toNode = viewModel.nodes.first(where: { $0.id == connectionId }) {
-                                ConnectionLine(from: fromNode.position, to: toNode.position)
-                                    .stroke(Color.gray.opacity(0.5), lineWidth: 1)
-                            }
-                        }
-                    }
-                    
-                    // Draw the nodes
-                    ForEach(viewModel.nodes) { node in
-                        if let note = viewModel.notes.first(where: { $0.id == node.id }) {
-                            Circle()
-                                .fill(Color.blue.opacity(0.7))
-                                .frame(width: viewModel.nodeRadius * 2, height: viewModel.nodeRadius * 2)
-                                .position(node.position)
-                                .overlay(
-                                    Text(note.title.prefix(2))
-                                        .foregroundColor(.white)
-                                        .font(.system(size: 10))
+            if MTLCreateSystemDefaultDevice() != nil {
+                MetalView(viewModel: viewModel, offset: $offset, scale: $scale)
+                    .edgesIgnoringSafeArea(.all)
+                    .gesture(
+                        DragGesture()
+                            .onChanged { value in
+                                offset = CGSize(
+                                    width: offset.width + value.translation.width,
+                                    height: offset.height + value.translation.height
                                 )
-                                .onTapGesture {
-                                    selectedNote = note
-                                }
+                            }
+                    )
+                    .gesture(
+                        MagnificationGesture()
+                            .onChanged { value in
+                                scale = value.magnitude
+                            }
+                    )
+            } else {
+                Text("Metal is not supported on this device")
+                    .foregroundColor(.red)
+            }
+            
+            // Overlay for node selection
+            ForEach(viewModel.nodes) { node in
+                if let note = viewModel.notes.first(where: { $0.id == node.id }) {
+                    Circle()
+                        .fill(Color.blue.opacity(0.001)) // Nearly transparent for hit testing
+                        .frame(width: viewModel.nodeRadius * 2, height: viewModel.nodeRadius * 2)
+                        .position(node.position)
+                        .onTapGesture {
+                            selectedNote = note
                         }
-                    }
                 }
-                .frame(width: viewModel.canvasSize.width, height: viewModel.canvasSize.height)
-                .scaleEffect(zoomScale)
-                .offset(dragOffset)
-                .gesture(
-                    DragGesture()
-                        .onChanged { value in
-                            dragOffset = value.translation
-                        }
-                )
-                .gesture(
-                    MagnificationGesture()
-                        .onChanged { value in
-                            zoomScale = value.magnitude
-                        }
-                )
+            }
+            VStack {
+                Spacer()
+                HStack {
+                    Spacer()
+                    Button(action: {
+                        isAddingNote = true
+                    }) {
+                        Image(systemName: "plus.circle.fill")
+                            .resizable()
+                            .frame(width: 60, height: 60)
+                            .foregroundColor(.blue)
+                            .background(Color.white)
+                            .clipShape(Circle())
+                            .shadow(radius: 5)
+                    }
+                    .padding()
+                }
             }
         }
         .sheet(item: $selectedNote) { note in
             NoteView(note: note)
         }
+        .sheet(isPresented: $isAddingNote) {
+            VStack {
+                Text("Add New Note")
+                    .font(.largeTitle)
+                    .padding()
+                
+                TextField("Title", text: $newNoteTitle)
+                    .textFieldStyle(RoundedBorderTextFieldStyle())
+                    .padding()
+                
+                TextEditor(text: $newNoteContent)
+                    .frame(height: 200)
+                    .border(Color.gray, width: 1)
+                    .padding()
+                
+                Button("Add Note") {
+                    addNewNote()
+                }
+                .disabled(newNoteTitle.isEmpty)
+                .padding()
+            }
+            .padding()
+        }
+    }
+    
+    private func addNewNote() {
+        viewModel.addNote(title: newNoteTitle, content: newNoteContent)
+        newNoteTitle = ""
+        newNoteContent = ""
+        isAddingNote = false
     }
 }
 
-// Keep the NoteView and NoteGraphView_Previews as they were
-// Preview Provider
 struct NoteGraphView_Previews: PreviewProvider {
     static var previews: some View {
-        let viewModel = NoteGraphViewModel()
-        
-        // Add more sample notes
-        viewModel.notes.append(contentsOf: [
-            Note(title: "GraphQL", content: "A query language for APIs"),
-            Note(title: "React", content: "A JavaScript library for building user interfaces"),
-            Note(title: "Node.js", content: "JavaScript runtime built on Chrome's V8 JavaScript engine")
-        ])
-        
-        // Add more sample nodes
-        for note in viewModel.notes.suffix(3) {
-            viewModel.nodes.append(NoteNode(id: note.id, position: CGPoint(x: CGFloat.random(in: 100...900), y: CGFloat.random(in: 100...900))))
-        }
-        
-        // Add more connections
-        viewModel.notes[2].connections.append(viewModel.notes[3].id)
-        viewModel.notes[3].connections.append(viewModel.notes[4].id)
-        viewModel.notes[4].connections.append(viewModel.notes[5].id)
-        viewModel.notes[5].connections.append(viewModel.notes[0].id)
-        
-        return NoteGraphView()
-            .environmentObject(viewModel)
-            .previewLayout(.fixed(width: 1200, height: 1200))
+        NoteGraphView()
     }
 }
