@@ -60,7 +60,7 @@ class MetalGraphRenderer: NSObject, MTKViewDelegate {
         }
         
         metalView.delegate = self
-        metalView.clearColor = MTLClearColor(red: 0.95, green: 0.95, blue: 0.97, alpha: 1.0)
+        metalView.clearColor = MTLClearColor(red: 0, green: 0, blue: 0, alpha: 1.0) // Black background
     }
     
     func updateNodes(_ newNodes: [NoteNode], connections: [Connection]) {
@@ -97,20 +97,22 @@ class MetalGraphRenderer: NSObject, MTKViewDelegate {
             if let fromNode = nodes.first(where: { $0.id == connection.from }),
                let toNode = nodes.first(where: { $0.id == connection.to }) {
                 vertices.append(Vertex(position: SIMD2<Float>(Float(fromNode.position.x), Float(fromNode.position.y)),
-                                       color: SIMD4<Float>(0.5, 0.5, 0.5, 0.5)))
+                                       color: SIMD4<Float>(0.7, 0.7, 0.7, 1.0))) // Light grey for connections
                 vertices.append(Vertex(position: SIMD2<Float>(Float(toNode.position.x), Float(toNode.position.y)),
-                                       color: SIMD4<Float>(0.5, 0.5, 0.5, 0.5)))
+                                       color: SIMD4<Float>(0.7, 0.7, 0.7, 1.0))) // Light grey for connections
             }
         }
+        
+        print("Added \(vertices.count / 2) connection lines")
         
         // Add vertices for nodes
         for node in nodes {
             let x = Float(node.position.x)
             let y = Float(node.position.y)
-            let radius: Float = 15.0
+            let radius: Float = 9.0 // Match the new nodeRadius in ViewModel
             let segments = 20
             
-            let nodeColor = SIMD4<Float>(0.2, 0.2, 0.2, 1.0)
+            let nodeColor = SIMD4<Float>(1.0, 1.0, 1.0, 1.0) // White for nodes
             
             for i in 0...segments {
                 let angle = Float(i) * (2.0 * .pi / Float(segments))
@@ -150,15 +152,16 @@ class MetalGraphRenderer: NSObject, MTKViewDelegate {
                                               znear: 0.0, zfar: 1.0))
         
         // Draw connections
-        renderEncoder.drawPrimitives(type: .line, vertexStart: 0, vertexCount: connections.count * 2)
+        let connectionVertexCount = connections.count * 2
+        renderEncoder.drawPrimitives(type: .line, vertexStart: 0, vertexCount: connectionVertexCount)
+        print("Drawing \(connections.count) connections")
         
         // Draw nodes
-        renderEncoder.drawPrimitives(type: .triangleStrip, vertexStart: connections.count * 2, vertexCount: nodes.count * 22)
+        renderEncoder.drawPrimitives(type: .triangleStrip, vertexStart: connectionVertexCount, vertexCount: nodes.count * 22)
+        print("Drawing \(nodes.count) nodes")
         
         renderEncoder.endEncoding()
         commandBuffer.present(drawable)
         commandBuffer.commit()
-        
-        print("Draw call completed")
     }
 }

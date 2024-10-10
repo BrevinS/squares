@@ -11,7 +11,7 @@ class NoteGraphViewModel: ObservableObject {
     @Published var notes: [Note] = []
     @Published var nodes: [NoteNode] = []
     let canvasSize = CGSize(width: 1000, height: 1000) // Reduced canvas size
-    let nodeRadius: CGFloat = 30 // Increased node size for visibility
+    let nodeRadius: CGFloat = 13 // Increased node size for visibility
 
     init() {
         loadSampleData()
@@ -65,6 +65,11 @@ class NoteGraphViewModel: ObservableObject {
             
             return updatedNote
         }
+        
+        print("Updated connections:")
+        for note in notes {
+            print("\(note.title): \(note.connections.count) connections")
+        }
     }
     
     func getConnections() -> [Connection] {
@@ -74,6 +79,7 @@ class NoteGraphViewModel: ObservableObject {
                 connections.append(Connection(from: note.id, to: connection))
             }
         }
+        print("Total connections: \(connections.count)")
         return connections
     }
     

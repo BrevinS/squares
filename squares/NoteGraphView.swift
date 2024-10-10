@@ -79,7 +79,7 @@ struct MetalView: UIViewRepresentable {
 struct NoteGraphView: View {
     @StateObject private var viewModel = NoteGraphViewModel()
     @State private var offset: CGSize = .zero
-    @State private var scale: CGFloat = 0.8 // Start with a slightly zoomed out view
+    @State private var scale: CGFloat = 0.8
     @State private var selectedNote: Note? = nil
     @State private var isAddingNote: Bool = false
     @State private var newNoteTitle: String = ""
@@ -87,6 +87,8 @@ struct NoteGraphView: View {
     
     var body: some View {
         ZStack {
+            Color.black.edgesIgnoringSafeArea(.all)
+            
             MetalView(viewModel: viewModel, offset: $offset, scale: $scale)
                 .edgesIgnoringSafeArea(.all)
                 .gesture(
@@ -101,7 +103,7 @@ struct NoteGraphView: View {
                 .gesture(
                     MagnificationGesture()
                         .onChanged { value in
-                            scale = value.magnitude * 0.8 // Adjust based on initial scale
+                            scale = value.magnitude * 0.8
                         }
                 )
             
@@ -113,7 +115,8 @@ struct NoteGraphView: View {
                 Text("Scale: \(scale)")
             }
             .padding()
-            .background(Color.white.opacity(0.7))
+            .background(Color.white.opacity(0.1))
+            .foregroundColor(.white)
             .cornerRadius(10)
             .padding()
             
@@ -129,8 +132,9 @@ struct NoteGraphView: View {
                             selectedNote = note
                         }
                     Text(note.title)
-                        .font(.caption)
-                        .position(CGPoint(x: node.position.x + offset.width, y: node.position.y + offset.height + viewModel.nodeRadius + 10))
+                        .font(.system(size: 8)) // Smaller font for smaller nodes
+                        .foregroundColor(.white)
+                        .position(CGPoint(x: node.position.x + offset.width, y: node.position.y + offset.height + viewModel.nodeRadius + 5))
                         .scaleEffect(scale)
                 }
             }
