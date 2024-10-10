@@ -7,7 +7,7 @@ class MetalGraphRenderer: NSObject, MTKViewDelegate {
     var pipelineState: MTLRenderPipelineState?
     var vertexBuffer: MTLBuffer?
     var nodes: [NoteNode] = []
-    var connections: [(UUID, UUID)] = []
+    var connections: [Connection] = []
     var viewportSize: vector_uint2 = vector_uint2(1, 1)
     var offset: CGPoint = .zero
     var scale: CGFloat = 1.0
@@ -60,97 +60,105 @@ class MetalGraphRenderer: NSObject, MTKViewDelegate {
         }
         
         metalView.delegate = self
-            metalView.clearColor = MTLClearColor(red: 0.05, green: 0.05, blue: 0.07, alpha: 1.0)
-        }
-        
-        func updateNodes(_ newNodes: [NoteNode], connections: [(UUID, UUID)]) {
-            self.nodes = newNodes
-            self.connections = connections
-            updateVertexBuffer()
-        }
-        
-        func setViewport(size: CGSize) {
-            viewportSize = vector_uint2(UInt32(size.width), UInt32(size.height))
-        }
-        
-        func setOffset(_ newOffset: CGPoint) {
-            offset = newOffset
-        }
-        
-        func setScale(_ newScale: CGFloat) {
-            scale = newScale
-        }
-        
-        func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) {
-            setViewport(size: size)
-        }
-        
-        func updateVertexBuffer() {
-            var vertices: [Vertex] = []
-            
-            // Add vertices for connections
-            for connection in connections {
-                if let fromNode = nodes.first(where: { $0.id == connection.0 }),
-                   let toNode = nodes.first(where: { $0.id == connection.1 }) {
-                    vertices.append(Vertex(position: SIMD2<Float>(Float(fromNode.position.x), Float(fromNode.position.y)),
-                                           color: SIMD4<Float>(0.5, 0.5, 0.5, 0.5)))
-                    vertices.append(Vertex(position: SIMD2<Float>(Float(toNode.position.x), Float(toNode.position.y)),
-                                           color: SIMD4<Float>(0.5, 0.5, 0.5, 0.5)))
-                }
-            }
-            
-            // Add vertices for nodes
-            for node in nodes {
-                let x = Float(node.position.x)
-                let y = Float(node.position.y)
-                let radius: Float = 30.0
-                let segments = 20
-                
-                let nodeColor = SIMD4<Float>(0.2, 0.2, 0.2, 1.0)
-                
-                for i in 0...segments {
-                    let angle = Float(i) * (2.0 * .pi / Float(segments))
-                    vertices.append(Vertex(position: SIMD2<Float>(x + cos(angle) * radius, y + sin(angle) * radius),
-                                           color: nodeColor))
-                    if i > 0 && i < segments {
-                        vertices.append(Vertex(position: SIMD2<Float>(x, y),
-                                               color: nodeColor))
-                    }
-                }
-            }
-            
-            vertexBuffer = device?.makeBuffer(bytes: vertices, length: vertices.count * MemoryLayout<Vertex>.stride, options: [])
-        }
-        
-        func draw(in view: MTKView) {
-            guard let drawable = view.currentDrawable,
-                  let renderPassDescriptor = view.currentRenderPassDescriptor,
-                  let commandBuffer = commandQueue?.makeCommandBuffer(),
-                  let renderEncoder = commandBuffer.makeRenderCommandEncoder(descriptor: renderPassDescriptor),
-                  let pipelineState = pipelineState,
-                  let vertexBuffer = vertexBuffer else {
-                return
-            }
-            
-            renderEncoder.setRenderPipelineState(pipelineState)
-            renderEncoder.setVertexBuffer(vertexBuffer, offset: 0, index: 0)
-            
-            let scaledWidth = Double(viewportSize.x) / Double(scale)
-            let scaledHeight = Double(viewportSize.y) / Double(scale)
-            renderEncoder.setViewport(MTLViewport(originX: Double(-offset.x / scale),
-                                                  originY: Double(-offset.y / scale),
-                                                  width: scaledWidth,
-                                                  height: scaledHeight,
-                                                  znear: 0.0, zfar: 1.0))
-            
-            // Draw connections
-            renderEncoder.drawPrimitives(type: .line, vertexStart: 0, vertexCount: connections.count * 2)
-            
-            // Draw nodes
-            renderEncoder.drawPrimitives(type: .triangleStrip, vertexStart: connections.count * 2, vertexCount: nodes.count * 22)
-            
-            renderEncoder.endEncoding()
-            commandBuffer.present(drawable)
-            commandBuffer.commit()
-        }
+        metalView.clearColor = MTLClearColor(red: 0.95, green: 0.95, blue: 0.97, alpha: 1.0)
     }
+    
+    func updateNodes(_ newNodes: [NoteNode], connections: [Connection]) {
+        self.nodes = newNodes
+        self.connections = connections
+        updateVertexBuffer()
+        print("Updated nodes: \(nodes.count), connections: \(connections.count)")
+    }
+    
+    func setViewport(size: CGSize) {
+        viewportSize = vector_uint2(UInt32(size.width), UInt32(size.height))
+        print("Viewport size set to: \(size)")
+    }
+    
+    func setOffset(_ newOffset: CGPoint) {
+        offset = newOffset
+        print("Offset set to: \(newOffset)")
+    }
+    
+    func setScale(_ newScale: CGFloat) {
+        scale = newScale
+        print("Scale set to: \(newScale)")
+    }
+    
+    func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) {
+        setViewport(size: size)
+    }
+    
+    func updateVertexBuffer() {
+        var vertices: [Vertex] = []
+        
+        // Add vertices for connections
+        for connection in connections {
+            if let fromNode = nodes.first(where: { $0.id == connection.from }),
+               let toNode = nodes.first(where: { $0.id == connection.to }) {
+                vertices.append(Vertex(position: SIMD2<Float>(Float(fromNode.position.x), Float(fromNode.position.y)),
+                                       color: SIMD4<Float>(0.5, 0.5, 0.5, 0.5)))
+                vertices.append(Vertex(position: SIMD2<Float>(Float(toNode.position.x), Float(toNode.position.y)),
+                                       color: SIMD4<Float>(0.5, 0.5, 0.5, 0.5)))
+            }
+        }
+        
+        // Add vertices for nodes
+        for node in nodes {
+            let x = Float(node.position.x)
+            let y = Float(node.position.y)
+            let radius: Float = 15.0
+            let segments = 20
+            
+            let nodeColor = SIMD4<Float>(0.2, 0.2, 0.2, 1.0)
+            
+            for i in 0...segments {
+                let angle = Float(i) * (2.0 * .pi / Float(segments))
+                vertices.append(Vertex(position: SIMD2<Float>(x + cos(angle) * radius, y + sin(angle) * radius),
+                                       color: nodeColor))
+                if i > 0 && i < segments {
+                    vertices.append(Vertex(position: SIMD2<Float>(x, y),
+                                           color: nodeColor))
+                }
+            }
+        }
+        
+        vertexBuffer = device?.makeBuffer(bytes: vertices, length: vertices.count * MemoryLayout<Vertex>.stride, options: [])
+        print("Vertex buffer updated with \(vertices.count) vertices")
+    }
+    
+    func draw(in view: MTKView) {
+        guard let drawable = view.currentDrawable,
+              let renderPassDescriptor = view.currentRenderPassDescriptor,
+              let commandBuffer = commandQueue?.makeCommandBuffer(),
+              let renderEncoder = commandBuffer.makeRenderCommandEncoder(descriptor: renderPassDescriptor),
+              let pipelineState = pipelineState,
+              let vertexBuffer = vertexBuffer else {
+            print("Failed to set up render pass")
+            return
+        }
+        
+        renderEncoder.setRenderPipelineState(pipelineState)
+        renderEncoder.setVertexBuffer(vertexBuffer, offset: 0, index: 0)
+        
+        let scaledWidth = Double(viewportSize.x) / Double(scale)
+        let scaledHeight = Double(viewportSize.y) / Double(scale)
+        renderEncoder.setViewport(MTLViewport(originX: Double(-offset.x / scale),
+                                              originY: Double(-offset.y / scale),
+                                              width: scaledWidth,
+                                              height: scaledHeight,
+                                              znear: 0.0, zfar: 1.0))
+        
+        // Draw connections
+        renderEncoder.drawPrimitives(type: .line, vertexStart: 0, vertexCount: connections.count * 2)
+        
+        // Draw nodes
+        renderEncoder.drawPrimitives(type: .triangleStrip, vertexStart: connections.count * 2, vertexCount: nodes.count * 22)
+        
+        renderEncoder.endEncoding()
+        commandBuffer.present(drawable)
+        commandBuffer.commit()
+        
+        print("Draw call completed")
+    }
+}
