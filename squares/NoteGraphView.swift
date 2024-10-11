@@ -34,6 +34,30 @@ struct NoteView: View {
     }
 }
 
+struct NodeView: View {
+    let note: Note
+    let nodeSize: CGFloat
+    let position: CGPoint
+    let nodeColor: Color
+    
+    var body: some View {
+        VStack(spacing: 5) {
+            Circle()
+                .fill(nodeColor)
+                .frame(width: nodeSize, height: nodeSize)
+                .shadow(color: Color.black.opacity(0.2), radius: 5, x: 0, y: 2)
+            
+            Text(note.title)
+                .font(.system(size: 10))
+                .foregroundColor(.white)
+                .lineLimit(2)
+                .multilineTextAlignment(.center)
+                .frame(width: nodeSize * 1.2)
+        }
+        .position(x: position.x, y: position.y + nodeSize / 2 + 10) // Adjust position to account for title below
+    }
+}
+
 struct NoteGraphView: View {
     @StateObject private var viewModel = NoteGraphViewModel()
     @State private var offset: CGSize = .zero
@@ -53,26 +77,20 @@ struct NoteGraphView: View {
     let decelerationRate: CGFloat = 0.85
     let minimumVelocity: CGFloat = 0.1
 
+    // Node appearance
+    let baseNodeRadius: CGFloat = 20
+    let maxNodeRadius: CGFloat = 40
+    let connectionScaleFactor: CGFloat = 2
+
+    // Colors
+    let backgroundColor = Color(red: 30/255, green: 30/255, blue: 30/255)
+    let lineColor = Color(red: 63/255, green: 63/255, blue: 63/255)
+    let nodeColor = Color(red: 179/255, green: 179/255, blue: 179/255)
+
     var body: some View {
         GeometryReader { geometry in
             ZStack {
-                Color(.systemBackground).edgesIgnoringSafeArea(.all)
-                
-                ForEach(viewModel.nodes) { node in
-                    if let note = viewModel.notes.first(where: { $0.id == node.id }) {
-                        Circle()
-                            .fill(Color.blue.opacity(0.3))
-                            .frame(width: viewModel.nodeRadius * 2, height: viewModel.nodeRadius * 2)
-                            .position(nodePosition(node))
-                            .onTapGesture {
-                                self.selectedNote = note
-                            }
-                        
-                        Text(note.title)
-                            .font(.system(size: 8))
-                            .position(nodeTitlePosition(node))
-                    }
-                }
+                backgroundColor.edgesIgnoringSafeArea(.all)
                 
                 // Draw connections
                 Path { path in
@@ -84,7 +102,16 @@ struct NoteGraphView: View {
                         }
                     }
                 }
-                .stroke(Color.gray, lineWidth: 1)
+                .stroke(lineColor, lineWidth: 1)
+                
+                ForEach(viewModel.nodes) { node in
+                    if let note = viewModel.notes.first(where: { $0.id == node.id }) {
+                        NodeView(note: note, nodeSize: nodeSize(for: note), position: nodePosition(node), nodeColor: nodeColor)
+                            .onTapGesture {
+                                self.selectedNote = note
+                            }
+                    }
+                }
             }
             .gesture(
                 DragGesture(minimumDistance: 0, coordinateSpace: .global)
@@ -99,8 +126,8 @@ struct NoteGraphView: View {
                             height: value.predictedEndLocation.y - value.location.y
                         )
                         velocity = CGSize(
-                            width: endVelocity.width * 0.1,  // Reduced initial velocity
-                            height: endVelocity.height * 0.1 // Reduced initial velocity
+                            width: endVelocity.width * 0.1,
+                            height: endVelocity.height * 0.1
                         )
                     }
             )
@@ -134,6 +161,12 @@ struct NoteGraphView: View {
         .onReceive(Timer.publish(every: 1/60, on: .main, in: .common).autoconnect()) { _ in
             applyMomentum()
         }
+    }
+    
+    private func nodeSize(for note: Note) -> CGFloat {
+        let connectionCount = CGFloat(note.connections.count)
+        let size = baseNodeRadius + min(connectionCount * connectionScaleFactor, maxNodeRadius - baseNodeRadius)
+        return size * 2 // Diameter
     }
     
     private func nodePosition(_ node: NoteNode) -> CGPoint {
