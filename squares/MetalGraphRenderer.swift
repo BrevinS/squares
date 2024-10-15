@@ -103,13 +103,11 @@ class MetalGraphRenderer: NSObject, MTKViewDelegate {
             }
         }
         
-        print("Added \(vertices.count / 2) connection lines")
-        
         // Add vertices for nodes
         for node in nodes {
             let x = Float(node.position.x)
             let y = Float(node.position.y)
-            let radius: Float = 9.0 // Match the new nodeRadius in ViewModel
+            let radius: Float = 9.0 // Match the nodeRadius in ViewModel
             let segments = 20
             
             let nodeColor = SIMD4<Float>(1.0, 1.0, 1.0, 1.0) // White for nodes
@@ -118,15 +116,12 @@ class MetalGraphRenderer: NSObject, MTKViewDelegate {
                 let angle = Float(i) * (2.0 * .pi / Float(segments))
                 vertices.append(Vertex(position: SIMD2<Float>(x + cos(angle) * radius, y + sin(angle) * radius),
                                        color: nodeColor))
-                if i > 0 && i < segments {
-                    vertices.append(Vertex(position: SIMD2<Float>(x, y),
-                                           color: nodeColor))
-                }
+                vertices.append(Vertex(position: SIMD2<Float>(x, y),
+                                       color: nodeColor))
             }
         }
         
         vertexBuffer = device?.makeBuffer(bytes: vertices, length: vertices.count * MemoryLayout<Vertex>.stride, options: [])
-        print("Vertex buffer updated with \(vertices.count) vertices")
     }
     
     func draw(in view: MTKView) {

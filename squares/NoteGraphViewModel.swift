@@ -10,13 +10,19 @@ struct Connection: Hashable {
 class NoteGraphViewModel: ObservableObject {
     @Published var notes: [Note] = []
     @Published var nodes: [NoteNode] = []
-    let canvasSize = CGSize(width: 1000, height: 1000) // Reduced canvas size
-    let nodeRadius: CGFloat = 13 // Increased node size for visibility
+    @Published var nodeSize: CGFloat = 26
+    @Published var connectionThickness: CGFloat = 1
+    @Published var centerForce: CGFloat = 0.05
+    @Published var repelForce: CGFloat = 8000
+    @Published var linkForce: CGFloat = 0.05
+    
+    let canvasSize = CGSize(width: 1000, height: 1000)
 
     init() {
         loadSampleData()
         initializeNodePositions()
         updateConnections()
+        startPhysicsSimulation()
     }
     
     private func loadSampleData() {
@@ -86,9 +92,95 @@ class NoteGraphViewModel: ObservableObject {
     func addNote(title: String, content: String) {
         let newNote = Note(title: title, content: content)
         notes.append(newNote)
-        let newNode = NoteNode(id: newNote.id, position: CGPoint(x: CGFloat.random(in: nodeRadius...(canvasSize.width - nodeRadius)),
-                                                                 y: CGFloat.random(in: nodeRadius...(canvasSize.height - nodeRadius))))
+        let newNode = NoteNode(id: newNote.id, position: CGPoint(x: CGFloat.random(in: nodeSize...(canvasSize.width - nodeSize)),
+                                                                 y: CGFloat.random(in: nodeSize...(canvasSize.height - nodeSize))))
         nodes.append(newNode)
         updateConnections()
+    }
+    
+    // Physics parameters
+    let gravitationalConstant: CGFloat = 0.05
+    let repulsionConstant: CGFloat = 8000
+    let dampingFactor: CGFloat = 0.9 // Slow down nodes over time
+
+    private func applyForces() {
+        let center = CGPoint(x: canvasSize.width / 2, y: canvasSize.height / 2)
+        let connections = getConnections()
+
+        for i in 0..<nodes.count {
+            var node = nodes[i]
+            
+            // Center force
+            let centerForceVector = CGPoint(
+                x: (center.x - node.position.x) * centerForce,
+                y: (center.y - node.position.y) * centerForce
+            )
+            node.acceleration = centerForceVector
+            
+            // Repel force
+            for j in 0..<nodes.count where i != j {
+                let otherNode = nodes[j]
+                let distance = hypot(node.position.x - otherNode.position.x, node.position.y - otherNode.position.y)
+                let direction = CGPoint(x: node.position.x - otherNode.position.x, y: node.position.y - otherNode.position.y)
+                
+                if distance > 0 {
+                    let repulsionForce = CGPoint(
+                        x: direction.x / distance * repelForce / (distance * distance),
+                        y: direction.y / distance * repelForce / (distance * distance)
+                    )
+                    node.acceleration.x += repulsionForce.x
+                    node.acceleration.y += repulsionForce.y
+                }
+            }
+            
+            // Link force
+            for connection in connections {
+                if connection.from == node.id,
+                   let toNode = nodes.first(where: { $0.id == connection.to }) {
+                    let distance = hypot(node.position.x - toNode.position.x, node.position.y - toNode.position.y)
+                    let direction = CGPoint(x: toNode.position.x - node.position.x, y: toNode.position.y - node.position.y)
+                    
+                    let linkForceVector = CGPoint(
+                        x: direction.x * linkForce,
+                        y: direction.y * linkForce
+                    )
+                    node.acceleration.x += linkForceVector.x
+                    node.acceleration.y += linkForceVector.y
+                }
+            }
+            
+            nodes[i] = node
+        }
+    }
+
+    func updateNodePositions() {
+        applyForces()
+        
+        for i in 0..<nodes.count {
+            var node = nodes[i]
+            
+            // Update velocity and position
+            node.velocity.x = (node.velocity.x + node.acceleration.x) * 0.9 // Damping factor
+            node.velocity.y = (node.velocity.y + node.acceleration.y) * 0.9 // Damping factor
+            
+            node.position.x += node.velocity.x
+            node.position.y += node.velocity.y
+            
+            // Reset acceleration
+            node.acceleration = .zero
+            
+            nodes[i] = node
+        }
+        
+        DispatchQueue.main.async {
+            self.objectWillChange.send()
+        }
+    }
+
+    // Start a physics simulation loop
+    func startPhysicsSimulation() {
+        Timer.scheduledTimer(withTimeInterval: 0.016, repeats: true) { _ in
+            self.updateNodePositions()
+        }
     }
 }
