@@ -101,7 +101,8 @@ class NoteGraphViewModel: ObservableObject {
     // Physics parameters
     let gravitationalConstant: CGFloat = 0.05
     let repulsionConstant: CGFloat = 8000
-    let dampingFactor: CGFloat = 0.9 // Slow down nodes over time
+    let dampingFactor: CGFloat = 0.8 // Increased damping to slow down nodes more quickly
+    let maxVelocity: CGFloat = 5 // Maximum velocity to prevent nodes from moving too fast
 
     private func applyForces() {
         let center = CGPoint(x: canvasSize.width / 2, y: canvasSize.height / 2)
@@ -120,24 +121,22 @@ class NoteGraphViewModel: ObservableObject {
             // Repel force
             for j in 0..<nodes.count where i != j {
                 let otherNode = nodes[j]
-                let distance = hypot(node.position.x - otherNode.position.x, node.position.y - otherNode.position.y)
+                let distance = max(hypot(node.position.x - otherNode.position.x, node.position.y - otherNode.position.y), 1)
                 let direction = CGPoint(x: node.position.x - otherNode.position.x, y: node.position.y - otherNode.position.y)
                 
-                if distance > 0 {
-                    let repulsionForce = CGPoint(
-                        x: direction.x / distance * repelForce / (distance * distance),
-                        y: direction.y / distance * repelForce / (distance * distance)
-                    )
-                    node.acceleration.x += repulsionForce.x
-                    node.acceleration.y += repulsionForce.y
-                }
+                let repulsionForce = CGPoint(
+                    x: direction.x / distance * repelForce / (distance * distance),
+                    y: direction.y / distance * repelForce / (distance * distance)
+                )
+                node.acceleration.x += repulsionForce.x
+                node.acceleration.y += repulsionForce.y
             }
             
             // Link force
             for connection in connections {
                 if connection.from == node.id,
                    let toNode = nodes.first(where: { $0.id == connection.to }) {
-                    let distance = hypot(node.position.x - toNode.position.x, node.position.y - toNode.position.y)
+                    let distance = max(hypot(node.position.x - toNode.position.x, node.position.y - toNode.position.y), 1)
                     let direction = CGPoint(x: toNode.position.x - node.position.x, y: toNode.position.y - node.position.y)
                     
                     let linkForceVector = CGPoint(
@@ -160,11 +159,22 @@ class NoteGraphViewModel: ObservableObject {
             var node = nodes[i]
             
             // Update velocity and position
-            node.velocity.x = (node.velocity.x + node.acceleration.x) * 0.9 // Damping factor
-            node.velocity.y = (node.velocity.y + node.acceleration.y) * 0.9 // Damping factor
+            node.velocity.x = (node.velocity.x + node.acceleration.x) * dampingFactor
+            node.velocity.y = (node.velocity.y + node.acceleration.y) * dampingFactor
+            
+            // Limit velocity
+            let speed = hypot(node.velocity.x, node.velocity.y)
+            if speed > maxVelocity {
+                node.velocity.x *= maxVelocity / speed
+                node.velocity.y *= maxVelocity / speed
+            }
             
             node.position.x += node.velocity.x
             node.position.y += node.velocity.y
+            
+            // Keep nodes within canvas bounds
+            node.position.x = max(nodeSize / 2, min(canvasSize.width - nodeSize / 2, node.position.x))
+            node.position.y = max(nodeSize / 2, min(canvasSize.height - nodeSize / 2, node.position.y))
             
             // Reset acceleration
             node.acceleration = .zero
