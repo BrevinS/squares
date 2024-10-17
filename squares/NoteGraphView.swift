@@ -280,7 +280,7 @@ struct NoteGraphView: View {
             addNoteView
         }
         .onAppear {
-            viewModel.centerView()
+            centerNodesInitially()
         }
         .onChange(of: fingerLocation) { newValue in
             updateOffset(newFingerLocation: newValue)
@@ -288,6 +288,7 @@ struct NoteGraphView: View {
         .onReceive(Timer.publish(every: 1/60, on: .main, in: .common).autoconnect()) { _ in
             applyMomentum()
         }
+        .gesture(DragGesture().onChanged { _ in }) // Disable swipe gesture for navigation
     }
         
     private var settingsButton: some View {
@@ -311,9 +312,13 @@ struct NoteGraphView: View {
         )
     }
     
-    private func nodeTitlePosition(_ node: NoteNode) -> CGPoint {
-        let nodePos = nodePosition(node)
-        return CGPoint(x: nodePos.x, y: nodePos.y + viewModel.nodeSize + 10)
+    private func centerNodesInitially() {
+        let (center, newScale) = viewModel.centerView()
+        scale = newScale
+        offset = CGSize(
+            width: UIScreen.main.bounds.width / 2 - center.x * scale,
+            height: UIScreen.main.bounds.height / 2 - center.y * scale
+        )
     }
     
     private func updateOffset(newFingerLocation: CGPoint?) {
