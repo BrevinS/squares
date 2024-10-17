@@ -5,7 +5,7 @@ struct SquaresView: View {
     let rows = 52
     let columns = 7
     let totalItems = 364
-    let daysOfWeek = ["S", "M", "T", "W", "T", "F", "S"]
+    @State private var daysOfWeek = ["S", "M", "T", "W", "T", "F", "S"]
     let expandedHeight = 19 // Number of rows in the expanded rectangle
 
     @State private var blocksDropped = false
@@ -104,6 +104,7 @@ struct SquaresView: View {
                 }
                 .onAppear {
                     blocksDropped = true
+                    alignDaysOfWeek()
                 }
             }
             .background(Color(red: 14 / 255, green: 17 / 255, blue: 22 / 255))
@@ -128,6 +129,14 @@ struct SquaresView: View {
         }
     }
     
+    private func alignDaysOfWeek() {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        let weekday = calendar.component(.weekday, from: today)
+        let shift = weekday - 1 // 1 is Sunday in Calendar.current
+        daysOfWeek = Array(daysOfWeek[shift...] + daysOfWeek[..<shift])
+    }
+    
     private func calculateDate(for index: Int) -> Date {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
@@ -146,6 +155,7 @@ struct SquaresView: View {
         formatter.dateFormat = "MMMM d, yyyy"
         return formatter.string(from: date)
     }
+    
     
     private func startRippleEffect(from index: Int) {
         guard !isExpanding else { return }
