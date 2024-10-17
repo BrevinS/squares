@@ -11,6 +11,8 @@ struct Note: Identifiable {
     let title: String
     let content: String
     var connections: [UUID] = []
+    var color: Color = .gray  // Default color
+    var tags: [String] = []   // Array to store tags
 }
 
 struct NoteNode: Identifiable {
@@ -18,6 +20,7 @@ struct NoteNode: Identifiable {
     var position: CGPoint
     var velocity: CGPoint = .zero
     var acceleration: CGPoint = .zero
+    var color: Color  // Add color property
 }
 
 struct NoteView: View {
@@ -154,10 +157,12 @@ struct NoteGraphView: View {
     @State private var offset: CGSize = .zero
     @State private var scale: CGFloat = 1.0
     @State private var selectedNote: Note? = nil
-   @State private var isAddingNote: Bool = false
-   @State private var newNoteTitle: String = ""
-   @State private var newNoteContent: String = ""
-   @State private var isShowingSettings: Bool = false
+    @State private var isAddingNote: Bool = false
+    @State private var newNoteTitle: String = ""
+    @State private var newNoteContent: String = ""
+    @State private var newNoteColor: Color = .gray
+    @State private var newNoteTags: String = ""
+    @State private var isShowingSettings: Bool = false
     
     // Gesture and momentum states
     @GestureState private var fingerLocation: CGPoint? = nil
@@ -168,6 +173,7 @@ struct NoteGraphView: View {
     // Momentum constants
     let decelerationRate: CGFloat = 0.85
     let minimumVelocity: CGFloat = 0.1
+
 
     // Node appearance
     let baseNodeRadius: CGFloat = 20
@@ -186,7 +192,7 @@ struct NoteGraphView: View {
         ZStack {
             GeometryReader { geometry in
                 ZStack {
-                    backgroundColor.edgesIgnoringSafeArea(.all)
+                    Color(red: 30/255, green: 30/255, blue: 30/255).edgesIgnoringSafeArea(.all)
                     
                     // Draw connections
                     Path { path in
@@ -198,11 +204,11 @@ struct NoteGraphView: View {
                             }
                         }
                     }
-                    .stroke(lineColor, lineWidth: viewModel.connectionThickness)
+                    .stroke(Color(red: 63/255, green: 63/255, blue: 63/255), lineWidth: viewModel.connectionThickness)
                     
                     ForEach(viewModel.nodes) { node in
                         if let note = viewModel.notes.first(where: { $0.id == node.id }) {
-                            NodeView(note: note, nodeSize: viewModel.nodeSize, position: nodePosition(node), nodeColor: nodeColor)
+                            NodeView(note: note, nodeSize: viewModel.nodeSize, position: nodePosition(node), nodeColor: node.color)
                                 .onTapGesture {
                                     self.selectedNote = note
                                 }
@@ -273,7 +279,9 @@ struct NoteGraphView: View {
         .sheet(isPresented: $isAddingNote) {
             addNoteView
         }
-        .onAppear(perform: centerView)
+        .onAppear {
+            viewModel.centerView()
+        }
         .onChange(of: fingerLocation) { newValue in
             updateOffset(newFingerLocation: newValue)
         }
@@ -281,7 +289,7 @@ struct NoteGraphView: View {
             applyMomentum()
         }
     }
-    
+        
     private var settingsButton: some View {
         Button(action: {
             isShowingSettings.toggle()
@@ -367,13 +375,18 @@ struct NoteGraphView: View {
                     TextField("Title", text: $newNoteTitle)
                     TextEditor(text: $newNoteContent)
                         .frame(height: 200)
+                    ColorPicker("Node Color", selection: $newNoteColor)
+                    TextField("Tags (comma-separated)", text: $newNoteTags)
                 }
                 
                 Section {
                     Button("Add Note") {
-                        viewModel.addNote(title: newNoteTitle, content: newNoteContent)
+                        let tags = newNoteTags.split(separator: ",").map { String($0.trimmingCharacters(in: .whitespaces)) }
+                        viewModel.addNote(title: newNoteTitle, content: newNoteContent, color: newNoteColor, tags: tags)
                         newNoteTitle = ""
                         newNoteContent = ""
+                        newNoteColor = .gray
+                        newNoteTags = ""
                         isAddingNote = false
                     }
                     .disabled(newNoteTitle.isEmpty)

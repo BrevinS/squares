@@ -110,14 +110,15 @@ class MetalGraphRenderer: NSObject, MTKViewDelegate {
             let radius: Float = 9.0 // Match the nodeRadius in ViewModel
             let segments = 20
             
-            let nodeColor = SIMD4<Float>(1.0, 1.0, 1.0, 1.0) // White for nodes
+            let nodeColor = node.color.cgColor?.components ?? [1.0, 1.0, 1.0, 1.0]
+            let color = SIMD4<Float>(Float(nodeColor[0]), Float(nodeColor[1]), Float(nodeColor[2]), Float(nodeColor[3]))
             
             for i in 0...segments {
                 let angle = Float(i) * (2.0 * .pi / Float(segments))
                 vertices.append(Vertex(position: SIMD2<Float>(x + cos(angle) * radius, y + sin(angle) * radius),
-                                       color: nodeColor))
+                                       color: color))
                 vertices.append(Vertex(position: SIMD2<Float>(x, y),
-                                       color: nodeColor))
+                                       color: color))
             }
         }
         

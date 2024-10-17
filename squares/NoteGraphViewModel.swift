@@ -45,7 +45,7 @@ class NoteGraphViewModel: ObservableObject {
             let angle = 2 * CGFloat.pi * CGFloat(index) / CGFloat(notes.count)
             let x = centerX + radius * cos(angle)
             let y = centerY + radius * sin(angle)
-            return NoteNode(id: note.id, position: CGPoint(x: x, y: y))
+            return NoteNode(id: note.id, position: CGPoint(x: x, y: y), color: note.color)
         }
     }
     
@@ -57,6 +57,7 @@ class NoteGraphViewModel: ObservableObject {
             var updatedNote = note
             updatedNote.connections.removeAll()
             
+            // Handle wiki-style links
             let range = NSRange(note.content.startIndex..., in: note.content)
             let matches = regex.matches(in: note.content, options: [], range: range)
             
@@ -66,6 +67,13 @@ class NoteGraphViewModel: ObservableObject {
                     if let linkedNote = notes.first(where: { $0.title == linkedTitle }) {
                         updatedNote.connections.append(linkedNote.id)
                     }
+                }
+            }
+            
+            // Handle tag-based connections
+            for otherNote in notes where otherNote.id != note.id {
+                if !Set(note.tags).isDisjoint(with: Set(otherNote.tags)) {
+                    updatedNote.connections.append(otherNote.id)
                 }
             }
             
@@ -89,11 +97,13 @@ class NoteGraphViewModel: ObservableObject {
         return connections
     }
     
-    func addNote(title: String, content: String) {
-        let newNote = Note(title: title, content: content)
+    func addNote(title: String, content: String, color: Color, tags: [String]) {
+        let newNote = Note(title: title, content: content, color: color, tags: tags)
         notes.append(newNote)
-        let newNode = NoteNode(id: newNote.id, position: CGPoint(x: CGFloat.random(in: nodeSize...(canvasSize.width - nodeSize)),
-                                                                 y: CGFloat.random(in: nodeSize...(canvasSize.height - nodeSize))))
+        let newNode = NoteNode(id: newNote.id,
+                               position: CGPoint(x: CGFloat.random(in: nodeSize...(canvasSize.width - nodeSize)),
+                                                 y: CGFloat.random(in: nodeSize...(canvasSize.height - nodeSize))),
+                               color: color)
         nodes.append(newNode)
         updateConnections()
     }
@@ -185,6 +195,20 @@ class NoteGraphViewModel: ObservableObject {
         DispatchQueue.main.async {
             self.objectWillChange.send()
         }
+    }
+    
+    func centerView() -> (CGPoint, CGFloat) {
+        let avgX = nodes.map { $0.position.x }.reduce(0, +) / CGFloat(nodes.count)
+        let avgY = nodes.map { $0.position.y }.reduce(0, +) / CGFloat(nodes.count)
+        let center = CGPoint(x: avgX, y: avgY)
+        
+        let maxDistance = nodes.map { node in
+            hypot(node.position.x - center.x, node.position.y - center.y)
+        }.max() ?? 0
+        
+        let scale = min(canvasSize.width, canvasSize.height) / (maxDistance * 2.5)
+        
+        return (center, scale)
     }
 
     // Start a physics simulation loop
