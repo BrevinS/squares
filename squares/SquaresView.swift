@@ -17,6 +17,8 @@ struct SquaresView: View {
     @State private var expandedRectangleTopIndex: Int = 0
     @State private var shouldScrollToTop = false
     @State private var selectedLocalWorkout: LocalWorkout?
+    // Strava refresh
+    @State private var isRefreshing = false
 
     @State private var selectedWorkoutDetails: WorkoutDetails?
     @EnvironmentObject var authManager: StravaAuthManager
@@ -32,6 +34,21 @@ struct SquaresView: View {
         ScrollViewReader { scrollProxy in
             ScrollView {
                 VStack(spacing: 0) {
+                    HStack {
+                        Spacer()
+                        Button(action: {
+                            refreshAllWorkouts()
+                        }) {
+                            Image(systemName: "figure.run.circle")
+                                .font(.system(size: 24))
+                                .foregroundColor(.orange)
+                        }
+                        .disabled(isRefreshing)
+                        .rotationEffect(Angle(degrees: isRefreshing ? 360 : 0))
+                        .animation(isRefreshing ? Animation.linear(duration: 1).repeatForever(autoreverses: false) : .default, value: isRefreshing)
+                    }
+                    .padding(.trailing)
+                    
                     Color.clear.frame(height: 1).id("top")
                     VStack {
                         ZStack {
@@ -249,31 +266,51 @@ struct SquaresView: View {
     private func onSquareTap(date: Date, index: Int) {
         selectedDate = date
         if let workout = workoutFor(date: date) {
-            fetchWorkoutDetails(for: workout)
+            selectedLocalWorkout = workout
             startRippleEffect(from: index)
         } else {
             showAlert = true
         }
     }
     
-    private func fetchWorkoutDetails(for workout: LocalWorkout, forceRefresh: Bool = false) {
-        if !forceRefresh && workout.detailedWorkout != nil {
-            self.selectedLocalWorkout = workout
-            return
-        }
+    private func refreshAllWorkouts() {
+        guard !isRefreshing else { return }
+        isRefreshing = true
         
+        authManager.fetchWorkoutSummaries { success in
+            if success {
+                // Check for new or updated workouts
+                let existingWorkouts = Set(self.workouts.map { $0.id })
+                let newWorkouts = self.authManager.workoutSummaries.filter { !existingWorkouts.contains($0.id) }
+                
+                for workout in newWorkouts {
+                    self.fetchWorkoutDetails(for: workout.id)
+                }
+            } else {
+                print("Failed to fetch workout summaries")
+            }
+            self.isRefreshing = false
+        }
+    }
+
+    private func fetchWorkoutDetails(for workoutId: Int64) {
         guard let athleteId = authManager.athleteId else {
             print("Error: No athlete ID available")
             return
         }
         
-        let urlString = "https://tier2dqr7a.execute-api.us-west-2.amazonaws.com/prod/workout?athlete_id=\(athleteId)&workout_id=\(workout.id)"
+        // Check if detailed workout already exists
+        if let existingWorkout = workouts.first(where: { $0.id == workoutId }),
+           existingWorkout.detailedWorkout != nil {
+            print("Detailed workout data already exists for workout ID: \(workoutId)")
+            return
+        }
+        
+        let urlString = "https://tier2dqr7a.execute-api.us-west-2.amazonaws.com/prod/workout?athlete_id=\(athleteId)&workout_id=\(workoutId)"
         guard let url = URL(string: urlString) else {
             print("Error: Invalid URL")
             return
         }
-        
-        print("Fetching workout details from URL: \(urlString)")
         
         URLSession.shared.dataTask(with: url) { data, response, error in
             if let error = error {
@@ -281,19 +318,12 @@ struct SquaresView: View {
                 return
             }
             
-            if let httpResponse = response as? HTTPURLResponse {
-                print("HTTP Response Status code: \(httpResponse.statusCode)")
-            }
-            
             guard let data = data else {
                 print("Error: No data received")
                 return
             }
             
-            print("Received data: \(String(data: data, encoding: .utf8) ?? "Unable to convert data to string")")
-            
             do {
-                // First, try to clean up the JSON string
                 if var jsonString = String(data: data, encoding: .utf8) {
                     jsonString = jsonString.replacingOccurrences(of: ": ,", with: ": null,")
                     jsonString = jsonString.replacingOccurrences(of: ":,", with: ":null,")
@@ -301,37 +331,39 @@ struct SquaresView: View {
                     if let cleanedData = jsonString.data(using: .utf8),
                        let jsonResult = try JSONSerialization.jsonObject(with: cleanedData, options: []) as? [String: Any] {
                         DispatchQueue.main.async {
-                            self.saveDetailedWorkout(jsonResult, for: workout)
+                            self.saveDetailedWorkout(jsonResult, for: workoutId)
                         }
                     } else {
                         print("Error: Unable to parse cleaned JSON data")
                     }
-                                    } else {
-                                        print("Error: Unable to convert data to string")
-                                    }
-                                } catch {
-                                    print("Error decoding workout details: \(error)")
-                                }
-                            }.resume()
-                        }
+                } else {
+                    print("Error: Unable to convert data to string")
+                }
+            } catch {
+                print("Error decoding workout details: \(error)")
+            }
+        }.resume()
+    }
 
-    private func saveDetailedWorkout(_ details: [String: Any], for localWorkout: LocalWorkout) {
+    private func saveDetailedWorkout(_ details: [String: Any], for workoutId: Int64) {
         viewContext.perform {
-            // Check if a DetailedWorkout already exists for this LocalWorkout
-            if let existingDetailedWorkout = localWorkout.detailedWorkout {
-                // Update the existing DetailedWorkout
-                self.updateDetailedWorkout(existingDetailedWorkout, with: details)
+            if let existingWorkout = self.workouts.first(where: { $0.id == workoutId }) {
+                if existingWorkout.detailedWorkout == nil {
+                    let newDetailedWorkout = DetailedWorkout(context: viewContext)
+                    self.updateDetailedWorkout(newDetailedWorkout, with: details)
+                    existingWorkout.detailedWorkout = newDetailedWorkout
+                    print("Saved new detailed workout data for workout ID: \(workoutId)")
+                } else {
+                    print("Detailed workout data already exists for workout ID: \(workoutId)")
+                }
             } else {
-                // Create a new DetailedWorkout if one doesn't exist
-                let newDetailedWorkout = DetailedWorkout(context: viewContext)
-                self.updateDetailedWorkout(newDetailedWorkout, with: details)
-                localWorkout.detailedWorkout = newDetailedWorkout
+                print("Error: No matching LocalWorkout found for workout ID: \(workoutId)")
             }
             
             do {
-                try viewContext.save()
-                print("Saved/Updated detailed workout data")
-                self.selectedLocalWorkout = localWorkout
+                if viewContext.hasChanges {
+                    try viewContext.save()
+                }
             } catch {
                 print("Error saving detailed workout: \(error)")
             }

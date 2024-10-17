@@ -93,7 +93,7 @@ class NoteGraphViewModel: ObservableObject {
                 connections.append(Connection(from: note.id, to: connection))
             }
         }
-        print("Total connections: \(connections.count)")
+        //print("Total connections: \(connections.count)")
         return connections
     }
     
