@@ -35,19 +35,21 @@ struct SquaresView: View {
             ScrollView {
                 VStack(spacing: 0) {
                     HStack {
+                        settingsButton
                         Spacer()
-                        Button(action: {
-                            refreshAllWorkouts()
-                        }) {
-                            Image(systemName: "figure.run.circle")
-                                .font(.system(size: 24))
-                                .foregroundColor(.orange)
-                        }
-                        .disabled(isRefreshing)
-                        .rotationEffect(Angle(degrees: isRefreshing ? 360 : 0))
-                        .animation(isRefreshing ? Animation.linear(duration: 1).repeatForever(autoreverses: false) : .default, value: isRefreshing)
+                        Text("Workout Graph")
+                            .font(.largeTitle)
+                            .foregroundColor(.orange)
+                        Spacer()
+                        addButton
                     }
-                    .padding(.trailing)
+                    .padding(.horizontal)
+                    .padding(.top, 1)
+                    .padding(.bottom, 10)
+                    .background(Color(red: 14/255, green: 17/255, blue: 22/255))
+                    
+                    // Existing content
+                    Color.clear.frame(height: 1).id("top")
                     
                     Color.clear.frame(height: 1).id("top")
                     VStack {
@@ -144,6 +146,30 @@ struct SquaresView: View {
                 resetView()
             }
         }
+    }
+    
+    private var settingsButton: some View {
+        Button(action: {
+            // Add your settings action here
+        }) {
+            Image(systemName: "square.stack.3d.down.right.fill")
+                .font(.system(size: 28))
+                .foregroundColor(.orange)
+        }
+    }
+    
+    private var addButton: some View {
+        Button(action: {
+            // Keep your existing refresh action here
+            refreshAllWorkouts()
+        }) {
+            Image(systemName: "figure.run")
+                .font(.system(size: 28))
+                .foregroundColor(.orange)
+        }
+        .disabled(isRefreshing)
+        .rotationEffect(Angle(degrees: isRefreshing ? 360 : 0))
+        .animation(isRefreshing ? Animation.linear(duration: 1).repeatForever(autoreverses: false) : .default, value: isRefreshing)
     }
     
     private func alignDaysOfWeek() {

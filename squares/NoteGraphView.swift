@@ -72,7 +72,7 @@ struct SettingsView: View {
     @Binding var isShowingSettings: Bool
 
     var body: some View {
-        VStack(spacing: 20) {
+        VStack(spacing: 5) {
             HStack {
                 Text("Settings")
                     .font(.title)
@@ -89,7 +89,7 @@ struct SettingsView: View {
             .padding(.bottom)
             
             ScrollView {
-                VStack(spacing: 20) {
+                VStack(spacing: 10) {
                     GroupBox("Graph Appearance") {
                         SliderView(value: $nodeSize, range: 10...50, label: "Node Size")
                         SliderView(value: $connectionThickness, range: 0.5...5, label: "Connection Thickness")
@@ -104,7 +104,7 @@ struct SettingsView: View {
             }
         }
         .padding()
-        .frame(width: 350, height: 500)
+        .frame(width: 350, height: 600)
         .background(Color.black.opacity(0.8))
         .cornerRadius(20)
     }
@@ -174,14 +174,14 @@ struct NoteGraphView: View {
     let decelerationRate: CGFloat = 0.85
     let minimumVelocity: CGFloat = 0.1
 
-
     // Node appearance
     let baseNodeRadius: CGFloat = 20
     let maxNodeRadius: CGFloat = 40
     let connectionScaleFactor: CGFloat = 2
 
     // Colors
-    let backgroundColor = Color(red: 30/255, green: 30/255, blue: 30/255)
+    let backgroundColor = Color(red: 14/255, green: 17/255, blue: 22/255)
+    let headerBackgroundColor = Color(red: 30/255, green: 30/255, blue: 30/255)
     let lineColor = Color(red: 63/255, green: 63/255, blue: 63/255)
     let nodeColor = Color(red: 179/255, green: 179/255, blue: 179/255)
 
@@ -189,90 +189,103 @@ struct NoteGraphView: View {
     let verticalOffset: CGFloat = 5  // Adjust this value to fine-tune the vertical position
 
     var body: some View {
-        ZStack {
-            GeometryReader { geometry in
-                ZStack {
-                    Color(red: 30/255, green: 30/255, blue: 30/255).edgesIgnoringSafeArea(.all)
+        GeometryReader { geometry in
+            ZStack {
+                headerBackgroundColor.edgesIgnoringSafeArea(.all)
+
+                VStack(spacing: 0) {
+                    // Custom navigation bar
+                    HStack {
+                        settingsButton
+                        Spacer()
+                        Text("Note Graph")
+                            .font(.largeTitle)
+                            .foregroundColor(.orange)
+                        Spacer()
+                        addButton
+                    }
+                    .padding(.horizontal)
+                    .padding(.top, 1)
+                    .padding(.bottom, 10)
+                    .background(backgroundColor)
                     
-                    // Draw connections
-                    Path { path in
-                        for connection in viewModel.getConnections() {
-                            if let fromNode = viewModel.nodes.first(where: { $0.id == connection.from }),
-                               let toNode = viewModel.nodes.first(where: { $0.id == connection.to }) {
-                                path.move(to: nodePosition(fromNode))
-                                path.addLine(to: nodePosition(toNode))
+                    ZStack {
+                        // Draw connections
+                        Path { path in
+                            for connection in viewModel.getConnections() {
+                                if let fromNode = viewModel.nodes.first(where: { $0.id == connection.from }),
+                                   let toNode = viewModel.nodes.first(where: { $0.id == connection.to }) {
+                                    path.move(to: nodePosition(fromNode))
+                                    path.addLine(to: nodePosition(toNode))
+                                }
+                            }
+                        }
+                        .stroke(lineColor, lineWidth: viewModel.connectionThickness)
+                        
+                        ForEach(viewModel.nodes) { node in
+                            if let note = viewModel.notes.first(where: { $0.id == node.id }) {
+                                NodeView(note: note, nodeSize: viewModel.nodeSize, position: nodePosition(node), nodeColor: node.color)
+                                    .onTapGesture {
+                                        self.selectedNote = note
+                                    }
                             }
                         }
                     }
-                    .stroke(Color(red: 63/255, green: 63/255, blue: 63/255), lineWidth: viewModel.connectionThickness)
-                    
-                    ForEach(viewModel.nodes) { node in
-                        if let note = viewModel.notes.first(where: { $0.id == node.id }) {
-                            NodeView(note: note, nodeSize: viewModel.nodeSize, position: nodePosition(node), nodeColor: node.color)
-                                .onTapGesture {
-                                    self.selectedNote = note
-                                }
-                        }
-                    }
+                    .gesture(
+                        DragGesture(minimumDistance: 0, coordinateSpace: .global)
+                            .updating($fingerLocation) { value, fingerLocation, _ in
+                                fingerLocation = value.location
+                                isScrolling = true
+                            }
+                            .onEnded { value in
+                                isScrolling = false
+                                let endVelocity = CGSize(
+                                    width: value.predictedEndLocation.x - value.location.x,
+                                    height: value.predictedEndLocation.y - value.location.y
+                                )
+                                velocity = CGSize(
+                                    width: endVelocity.width * 0.1,
+                                    height: endVelocity.height * 0.1
+                                )
+                            }
+                    )
+                    .gesture(
+                        MagnificationGesture()
+                            .onChanged { value in
+                                let delta = value / scale
+                                scale *= delta
+                                scale = min(max(scale, 0.5), 2.0)
+                                
+                                let zoomPoint = CGPoint(x: geometry.size.width / 2, y: geometry.size.height / 2)
+                                offset = CGSize(
+                                    width: (offset.width - zoomPoint.x) * delta + zoomPoint.x,
+                                    height: (offset.height - zoomPoint.y) * delta + zoomPoint.y
+                                )
+                            }
+                    )
                 }
-                .gesture(
-                    DragGesture(minimumDistance: 0, coordinateSpace: .global)
-                        .updating($fingerLocation) { value, fingerLocation, _ in
-                            fingerLocation = value.location
-                            isScrolling = true
-                        }
-                        .onEnded { value in
-                            isScrolling = false
-                            let endVelocity = CGSize(
-                                width: value.predictedEndLocation.x - value.location.x,
-                                height: value.predictedEndLocation.y - value.location.y
-                            )
-                            velocity = CGSize(
-                                width: endVelocity.width * 0.1,
-                                height: endVelocity.height * 0.1
-                            )
-                        }
-                )
-                .gesture(
-                    MagnificationGesture()
-                        .onChanged { value in
-                            let delta = value / scale
-                            scale *= delta
-                            scale = min(max(scale, 0.5), 2.0)
-                            
-                            let zoomPoint = CGPoint(x: geometry.size.width / 2, y: geometry.size.height / 2)
-                            offset = CGSize(
-                                width: (offset.width - zoomPoint.x) * delta + zoomPoint.x,
-                                height: (offset.height - zoomPoint.y) * delta + zoomPoint.y
-                            )
-                        }
-                )
-            }
-            
-            if isShowingSettings {
-                Color.black.opacity(0.3)
-                    .edgesIgnoringSafeArea(.all)
-                    .onTapGesture {
-                        isShowingSettings = false
-                    }
                 
-                SettingsView(
-                    nodeSize: $viewModel.nodeSize,
-                    connectionThickness: $viewModel.connectionThickness,
-                    centerForce: $viewModel.centerForce,
-                    repelForce: $viewModel.repelForce,
-                    linkForce: $viewModel.linkForce,
-                    isShowingSettings: $isShowingSettings
-                )
-                .transition(.move(edge: .top))
-                .animation(.easeInOut, value: isShowingSettings)
+                if isShowingSettings {
+                    Color.black.opacity(0.3)
+                        .edgesIgnoringSafeArea(.all)
+                        .onTapGesture {
+                            isShowingSettings = false
+                        }
+                    
+                    SettingsView(
+                        nodeSize: $viewModel.nodeSize,
+                        connectionThickness: $viewModel.connectionThickness,
+                        centerForce: $viewModel.centerForce,
+                        repelForce: $viewModel.repelForce,
+                        linkForce: $viewModel.linkForce,
+                        isShowingSettings: $isShowingSettings
+                    )
+                    .offset(y: 20) // Add this line to move the settings popup 30 pixels lower
+                    .transition(.move(edge: .top))
+                    .animation(.easeInOut, value: isShowingSettings)
+                }
             }
         }
-        .navigationBarTitle("Note Graph", displayMode: .inline)
-        .navigationBarItems(
-            leading: settingsButton,
-            trailing: addButton
-        )
         .sheet(item: $selectedNote) { note in
             NoteView(note: note)
         }
@@ -295,7 +308,19 @@ struct NoteGraphView: View {
         Button(action: {
             isShowingSettings.toggle()
         }) {
-            Image(systemName: "gear")
+            Image(systemName: "slider.horizontal.3")
+                .font(.system(size: 28))
+                .foregroundColor(.orange)
+        }
+    }
+    
+    private var addButton: some View {
+        Button(action: {
+            isAddingNote = true
+        }) {
+            Image(systemName: "plus.circle.fill")
+                .font(.system(size: 28))
+                .foregroundColor(.orange)
         }
     }
     
@@ -363,14 +388,6 @@ struct NoteGraphView: View {
         let avgY = viewModel.nodes.map { $0.position.y }.reduce(0, +) / CGFloat(viewModel.nodes.count)
         let screenCenter = CGPoint(x: UIScreen.main.bounds.width / 2, y: UIScreen.main.bounds.height / 2)
         offset = CGSize(width: screenCenter.x - avgX * scale, height: screenCenter.y - avgY * scale)
-    }
-    
-    private var addButton: some View {
-        Button(action: {
-            isAddingNote = true
-        }) {
-            Image(systemName: "plus")
-        }
     }
     
     private var addNoteView: some View {

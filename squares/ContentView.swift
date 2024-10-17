@@ -18,9 +18,9 @@ struct ContentView: View {
                     .tag(0)
                     
                     VStack {
-                        Text("Squares")
-                            .font(.largeTitle)
-                            .foregroundColor(.orange)
+                        //Text("Squares")
+                        //   .font(.largeTitle)
+                        //    .foregroundColor(.orange)
                         SquaresView()
                             .environment(\.managedObjectContext, viewContext)
                     }
@@ -87,7 +87,7 @@ struct ContentView: View {
                         selectedTab = 3
                     }) {
                         VStack {
-                            Image(systemName: "chart.bar.xaxis")
+                            Image(systemName: "brain")
                                 .font(.system(size: 30))
                                 .foregroundColor(Color(.systemOrange))
                             if selectedTab == 3 {
