@@ -17,9 +17,9 @@ struct SquaresView: View {
     @State private var expandedRectangleTopIndex: Int = 0
     @State private var shouldScrollToTop = false
     @State private var selectedLocalWorkout: LocalWorkout?
+    
     // Strava refresh
     @State private var isRefreshing = false
-
     @State private var selectedWorkoutDetails: WorkoutDetails?
     @EnvironmentObject var authManager: StravaAuthManager
     
@@ -150,14 +150,21 @@ struct SquaresView: View {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
         let weekday = calendar.component(.weekday, from: today)
-        let shift = weekday - 1 // 1 is Sunday in Calendar.current
-        daysOfWeek = Array(daysOfWeek[shift...] + daysOfWeek[..<shift])
+        
+        // Adjust the weekday to align with the array index (0-6)
+        let adjustedWeekday = weekday
+        
+        // Rotate the days array so that today's day is at index 0
+        let rotatedDays = Array(daysOfWeek[adjustedWeekday...] + daysOfWeek[..<adjustedWeekday])
+        
+        // Reverse the order to make the days progress forward
+        daysOfWeek = Array(rotatedDays.reversed())
     }
     
     private func calculateDate(for index: Int) -> Date {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
-        return calendar.date(byAdding: .day, value: index + 2 - 365, to: today)!
+        return calendar.date(byAdding: .day, value: -(totalItems - 1 - index), to: today)!
     }
     
     private func formattedDate(_ date: Date?) -> String {
@@ -471,10 +478,10 @@ struct SquaresView: View {
    }
 
 
-struct SquaresView_Previews: PreviewProvider {
-    static var previews: some View {
-        SquaresView()
-            .environment(\.managedObjectContext, PersistenceController.preview.container.viewContext)
-            .environmentObject(StravaAuthManager())
-    }
+    struct SquaresView_Previews: PreviewProvider {
+        static var previews: some View {
+            SquaresView()
+                .environment(\.managedObjectContext, PersistenceController.preview.container.viewContext)
+                .environmentObject(StravaAuthManager())
+        }
 }
