@@ -63,53 +63,6 @@ struct NodeView: View {
     }
 }
 
-struct SettingsView: View {
-    @Binding var nodeSize: CGFloat
-    @Binding var connectionThickness: CGFloat
-    @Binding var centerForce: CGFloat
-    @Binding var repelForce: CGFloat
-    @Binding var linkForce: CGFloat
-    @Binding var isShowingSettings: Bool
-
-    var body: some View {
-        VStack(spacing: 5) {
-            HStack {
-                Text("Settings")
-                    .font(.title)
-                    .foregroundColor(.white)
-                Spacer()
-                Button(action: {
-                    isShowingSettings = false
-                }) {
-                    Image(systemName: "xmark.circle.fill")
-                        .foregroundColor(.white)
-                        .font(.title2)
-                }
-            }
-            .padding(.bottom)
-            
-            ScrollView {
-                VStack(spacing: 10) {
-                    GroupBox("Graph Appearance") {
-                        SliderView(value: $nodeSize, range: 10...50, label: "Node Size")
-                        SliderView(value: $connectionThickness, range: 0.5...5, label: "Connection Thickness")
-                    }
-                    
-                    GroupBox("Physics Forces") {
-                        SliderView(value: $centerForce, range: 0.025...0.1, label: "Center Force")
-                        SliderView(value: $repelForce, range: 1000...100000, label: "Repel Force")
-                        SliderView(value: $linkForce, range: 0...0.1, label: "Link Force")
-                    }
-                }
-            }
-        }
-        .padding()
-        .frame(width: 350, height: 600)
-        .background(Color.black.opacity(0.8))
-        .cornerRadius(20)
-    }
-}
-
 struct SliderView: View {
     @Binding var value: CGFloat
     let range: ClosedRange<CGFloat>
@@ -152,6 +105,75 @@ struct GroupBox<Content: View>: View {
     }
 }
 
+struct SettingsView: View {
+    @Binding var nodeSize: CGFloat
+    @Binding var connectionThickness: CGFloat
+    @Binding var centerForce: CGFloat
+    @Binding var repelForce: CGFloat
+    @Binding var linkForce: CGFloat
+    @Binding var isShowingSettings: Bool
+
+    var body: some View {
+        VStack(spacing: 20) {
+            HStack {
+                Text("Settings")
+                    .font(.title)
+                    .foregroundColor(.white)
+                Spacer()
+                Button(action: {
+                    isShowingSettings = false
+                }) {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundColor(.white)
+                        .font(.title2)
+                }
+            }
+            .padding(.bottom)
+            
+            ScrollView {
+                VStack(spacing: 20) {
+                    SettingsGroup("Graph Appearance") {
+                        SliderView(value: $nodeSize, range: 10...50, label: "Node Size")
+                        SliderView(value: $connectionThickness, range: 0.5...5, label: "Connection Thickness")
+                    }
+                    
+                    SettingsGroup("Physics Forces") {
+                        SliderView(value: $centerForce, range: 0.025...0.1, label: "Center Force")
+                        SliderView(value: $repelForce, range: 1000...100000, label: "Repel Force")
+                        SliderView(value: $linkForce, range: 0...0.1, label: "Link Force")
+                    }
+                }
+            }
+        }
+        .padding()
+        .frame(width: 350, height: 500)
+        .background(Color.black.opacity(0.8))
+        .cornerRadius(20)
+    }
+}
+
+struct SettingsGroup<Content: View>: View {
+    let title: String
+    let content: Content
+    
+    init(_ title: String, @ViewBuilder content: () -> Content) {
+        self.title = title
+        self.content = content()
+    }
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(title)
+                .font(.headline)
+                .foregroundColor(.white)
+            content
+        }
+        .padding()
+        .background(Color.white.opacity(0.1))
+        .cornerRadius(10)
+    }
+}
+
 struct NoteGraphView: View {
     @StateObject private var viewModel = NoteGraphViewModel()
     @State private var offset: CGSize = .zero
@@ -164,29 +186,13 @@ struct NoteGraphView: View {
     @State private var newNoteTags: String = ""
     @State private var isShowingSettings: Bool = false
     
-    // Gesture and momentum states
-    @GestureState private var fingerLocation: CGPoint? = nil
-    @State private var lastFingerLocation: CGPoint? = nil
-    @State private var velocity: CGSize = .zero
-    @State private var isScrolling = false
+    // Gesture states
+    @GestureState private var dragOffset: CGSize = .zero
+    @GestureState private var magnifyBy: CGFloat = 1.0
     
-    // Momentum constants
-    let decelerationRate: CGFloat = 0.85
-    let minimumVelocity: CGFloat = 0.1
-
-    // Node appearance
-    let baseNodeRadius: CGFloat = 20
-    let maxNodeRadius: CGFloat = 40
-    let connectionScaleFactor: CGFloat = 2
-
     // Colors
     let backgroundColor = Color(red: 14/255, green: 17/255, blue: 22/255)
     let headerBackgroundColor = Color(red: 30/255, green: 30/255, blue: 30/255)
-    let lineColor = Color(red: 63/255, green: 63/255, blue: 63/255)
-    let nodeColor = Color(red: 179/255, green: 179/255, blue: 179/255)
-
-    // Vertical offset adjustment
-    let verticalOffset: CGFloat = 5  // Adjust this value to fine-tune the vertical position
 
     var body: some View {
         GeometryReader { geometry in
@@ -209,60 +215,8 @@ struct NoteGraphView: View {
                     .padding(.bottom, 10)
                     .background(backgroundColor)
                     
-                    ZStack {
-                        // Draw connections
-                        Path { path in
-                            for connection in viewModel.getConnections() {
-                                if let fromNode = viewModel.nodes.first(where: { $0.id == connection.from }),
-                                   let toNode = viewModel.nodes.first(where: { $0.id == connection.to }) {
-                                    path.move(to: nodePosition(fromNode))
-                                    path.addLine(to: nodePosition(toNode))
-                                }
-                            }
-                        }
-                        .stroke(lineColor, lineWidth: viewModel.connectionThickness)
-                        
-                        ForEach(viewModel.nodes) { node in
-                            if let note = viewModel.notes.first(where: { $0.id == node.id }) {
-                                NodeView(note: note, nodeSize: viewModel.nodeSize, position: nodePosition(node), nodeColor: node.color)
-                                    .onTapGesture {
-                                        self.selectedNote = note
-                                    }
-                            }
-                        }
-                    }
-                    .gesture(
-                        DragGesture(minimumDistance: 0, coordinateSpace: .global)
-                            .updating($fingerLocation) { value, fingerLocation, _ in
-                                fingerLocation = value.location
-                                isScrolling = true
-                            }
-                            .onEnded { value in
-                                isScrolling = false
-                                let endVelocity = CGSize(
-                                    width: value.predictedEndLocation.x - value.location.x,
-                                    height: value.predictedEndLocation.y - value.location.y
-                                )
-                                velocity = CGSize(
-                                    width: endVelocity.width * 0.1,
-                                    height: endVelocity.height * 0.1
-                                )
-                            }
-                    )
-                    .gesture(
-                        MagnificationGesture()
-                            .onChanged { value in
-                                let delta = value / scale
-                                scale *= delta
-                                scale = min(max(scale, 0.5), 2.0)
-                                
-                                let zoomPoint = CGPoint(x: geometry.size.width / 2, y: geometry.size.height / 2)
-                                offset = CGSize(
-                                    width: (offset.width - zoomPoint.x) * delta + zoomPoint.x,
-                                    height: (offset.height - zoomPoint.y) * delta + zoomPoint.y
-                                )
-                            }
-                    )
+                    graphContent(in: geometry)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
                 
                 if isShowingSettings {
@@ -280,12 +234,12 @@ struct NoteGraphView: View {
                         linkForce: $viewModel.linkForce,
                         isShowingSettings: $isShowingSettings
                     )
-                    .offset(y: 20) // Add this line to move the settings popup 30 pixels lower
                     .transition(.move(edge: .top))
                     .animation(.easeInOut, value: isShowingSettings)
                 }
             }
         }
+        .gesture(graphGestures)
         .sheet(item: $selectedNote) { note in
             NoteView(note: note)
         }
@@ -293,15 +247,85 @@ struct NoteGraphView: View {
             addNoteView
         }
         .onAppear {
-            centerNodesInitially()
+            resetView()
         }
-        .onChange(of: fingerLocation) { newValue in
-            updateOffset(newFingerLocation: newValue)
+    }
+    
+    private var graphGestures: some Gesture {
+        SimultaneousGesture(
+            DragGesture()
+                .updating($dragOffset) { value, state, _ in
+                    if !isShowingSettings {
+                        state = value.translation
+                    }
+                }
+                .onEnded { value in
+                    if !isShowingSettings {
+                        offset.width += value.translation.width
+                        offset.height += value.translation.height
+                    }
+                },
+            MagnificationGesture()
+                .updating($magnifyBy) { value, state, _ in
+                    if !isShowingSettings {
+                        state = value
+                    }
+                }
+                .onEnded { value in
+                    if !isShowingSettings {
+                        scale *= value
+                        scale = min(max(scale, 0.5), 2.0)
+                    }
+                }
+        )
+    }
+    
+    private func graphContent(in geometry: GeometryProxy) -> some View {
+        let centeringOffset = calculateCenteringOffset(for: geometry)
+        return ZStack {
+            // Draw connections
+            Path { path in
+                for connection in viewModel.getConnections() {
+                    if let fromNode = viewModel.nodes.first(where: { $0.id == connection.from }),
+                       let toNode = viewModel.nodes.first(where: { $0.id == connection.to }) {
+                        path.move(to: nodePosition(fromNode, with: centeringOffset))
+                        path.addLine(to: nodePosition(toNode, with: centeringOffset))
+                    }
+                }
+            }
+            .stroke(Color(red: 63/255, green: 63/255, blue: 63/255), lineWidth: viewModel.connectionThickness)
+            
+            ForEach(viewModel.nodes) { node in
+                if let note = viewModel.notes.first(where: { $0.id == node.id }) {
+                    NodeView(note: note, nodeSize: viewModel.nodeSize, position: nodePosition(node, with: centeringOffset), nodeColor: node.color)
+                        .onTapGesture {
+                            self.selectedNote = note
+                        }
+                }
+            }
         }
-        .onReceive(Timer.publish(every: 1/60, on: .main, in: .common).autoconnect()) { _ in
-            applyMomentum()
-        }
-        .gesture(DragGesture().onChanged { _ in }) // Disable swipe gesture for navigation
+        .scaleEffect(scale * magnifyBy)
+        .offset(x: offset.width + dragOffset.width, y: offset.height + dragOffset.height)
+    }
+    
+    private func calculateCenteringOffset(for geometry: GeometryProxy) -> CGSize {
+        let nodes = viewModel.nodes
+        guard !nodes.isEmpty else { return .zero }
+        
+        let avgX = nodes.map { $0.position.x }.reduce(0, +) / CGFloat(nodes.count)
+        let avgY = nodes.map { $0.position.y }.reduce(0, +) / CGFloat(nodes.count)
+        
+        let centerX = geometry.size.width / 2
+        let centerY = geometry.size.height / 2
+        
+        return CGSize(width: centerX - avgX, height: centerY - avgY)
+    }
+    
+    private func nodePosition(_ node: NoteNode, with centeringOffset: CGSize) -> CGPoint {
+        return CGPoint(
+            x: node.position.x + centeringOffset.width,
+            y: node.position.y + centeringOffset.height
+        )
     }
         
     private var settingsButton: some View {
@@ -324,70 +348,10 @@ struct NoteGraphView: View {
         }
     }
     
-    private func nodeSize(for note: Note) -> CGFloat {
-        let connectionCount = CGFloat(note.connections.count)
-        let size = baseNodeRadius + min(connectionCount * connectionScaleFactor, maxNodeRadius - baseNodeRadius)
-        return size * 2 // Diameter
-    }
-    
-    private func nodePosition(_ node: NoteNode) -> CGPoint {
-        return CGPoint(
-            x: node.position.x * scale + offset.width,
-            y: node.position.y * scale + offset.height + verticalOffset
-        )
-    }
-    
-    private func centerNodesInitially() {
-        let (center, newScale) = viewModel.centerView()
+    private func resetView() {
+        let (_, newScale) = viewModel.centerView()
         scale = newScale
-        offset = CGSize(
-            width: UIScreen.main.bounds.width / 2 - center.x * scale,
-            height: UIScreen.main.bounds.height / 2 - center.y * scale
-        )
-    }
-    
-    private func updateOffset(newFingerLocation: CGPoint?) {
-        guard let newFingerLocation = newFingerLocation else {
-            lastFingerLocation = nil
-            return
-        }
-        
-        if let lastFingerLocation = lastFingerLocation {
-            let dx = newFingerLocation.x - lastFingerLocation.x
-            let dy = newFingerLocation.y - lastFingerLocation.y
-            
-            offset = CGSize(
-                width: offset.width + dx,
-                height: offset.height + dy
-            )
-        }
-        
-        lastFingerLocation = newFingerLocation
-    }
-    
-    private func applyMomentum() {
-        guard !isScrolling else { return }
-        
-        if abs(velocity.width) > minimumVelocity || abs(velocity.height) > minimumVelocity {
-            offset = CGSize(
-                width: offset.width + velocity.width,
-                height: offset.height + velocity.height
-            )
-            
-            velocity = CGSize(
-                width: velocity.width * decelerationRate,
-                height: velocity.height * decelerationRate
-            )
-        } else {
-            velocity = .zero
-        }
-    }
-    
-    private func centerView() {
-        let avgX = viewModel.nodes.map { $0.position.x }.reduce(0, +) / CGFloat(viewModel.nodes.count)
-        let avgY = viewModel.nodes.map { $0.position.y }.reduce(0, +) / CGFloat(viewModel.nodes.count)
-        let screenCenter = CGPoint(x: UIScreen.main.bounds.width / 2, y: UIScreen.main.bounds.height / 2)
-        offset = CGSize(width: screenCenter.x - avgX * scale, height: screenCenter.y - avgY * scale)
+        offset = .zero
     }
     
     private var addNoteView: some View {
