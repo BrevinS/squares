@@ -11,6 +11,7 @@ struct PersistenceController {
             newWorkout.id = Int64.random(in: 1...1000)
             newWorkout.date = Date()
             newWorkout.distance = Double.random(in: 1000...15000)
+            newWorkout.type = "Run"  // Add type to preview data
             
             let detailedWorkout = DetailedWorkout(context: viewContext)
             detailedWorkout.workout_id = newWorkout.id

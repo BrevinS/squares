@@ -6,11 +6,13 @@ struct WorkoutSummary: Codable, Identifiable {
     let id: Int64
     let distance: Double
     let date: String
+    let type: String  // Add type field
 
     enum CodingKeys: String, CodingKey {
         case id = "workout_id"
         case distance
         case date = "start_date_local"
+        case type = "sport_type"  // Map to type field from API
     }
 }
 
@@ -140,6 +142,11 @@ class StravaAuthManager: ObservableObject {
             }
             
             do {
+                // Print raw JSON for debugging
+                if let jsonString = String(data: data, encoding: .utf8) {
+                    print("Raw JSON response: \(jsonString)")
+                }
+                
                 let decodedResponse = try JSONDecoder().decode(WorkoutsResponse.self, from: data)
                 DispatchQueue.main.async {
                     let newWorkouts = self.updateWorkoutSummaries(decodedResponse.workouts)
@@ -215,10 +222,13 @@ class StravaAuthManager: ObservableObject {
             do {
                 let results = try context.fetch(fetchRequest)
                 if let existingWorkout = results.first {
-                    // Workout already exists, check if it needs updating
-                    if existingWorkout.distance != workout.distance || existingWorkout.date != ISO8601DateFormatter().date(from: workout.date) {
+                    // Workout exists, check if it needs updating
+                    if existingWorkout.distance != workout.distance ||
+                       existingWorkout.date != ISO8601DateFormatter().date(from: workout.date) ||
+                       existingWorkout.type != workout.type {
                         existingWorkout.distance = workout.distance
                         existingWorkout.date = ISO8601DateFormatter().date(from: workout.date)
+                        existingWorkout.type = workout.type
                         updatedWorkoutsCount += 1
                         print("Updated existing workout: ID \(workout.id)")
                     } else {
@@ -231,8 +241,9 @@ class StravaAuthManager: ObservableObject {
                     localWorkout.id = workout.id
                     localWorkout.distance = workout.distance
                     localWorkout.date = ISO8601DateFormatter().date(from: workout.date)
+                    localWorkout.type = workout.type
                     newWorkoutsCount += 1
-                    print("Created new workout: ID \(workout.id)")
+                    print("Created new workout: ID \(workout.id), Type \(workout.type)")
                 }
             } catch {
                 print("Error processing workout ID \(workout.id): \(error)")
@@ -247,6 +258,13 @@ class StravaAuthManager: ObservableObject {
                 print("No changes to save in Core Data context")
             }
             print("Summary: \(newWorkoutsCount) new, \(updatedWorkoutsCount) updated, \(unchangedWorkoutsCount) unchanged")
+            
+            // Verify all workouts after saving
+            let allWorkouts = try context.fetch(LocalWorkout.fetchRequest())
+            print("\nFinal verification - All workouts in Core Data:")
+            for workout in allWorkouts {
+                print("ID: \(workout.id), Type: \(workout.type ?? "nil"), Date: \(workout.date?.description ?? "nil")")
+            }
         } catch {
             print("Failed to save workouts locally: \(error)")
         }

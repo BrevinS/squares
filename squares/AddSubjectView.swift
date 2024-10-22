@@ -4,7 +4,7 @@ struct ColorCircle: View {
     let color: Color
     let isSelected: Bool
     let action: () -> Void
-
+    
     var body: some View {
         Button(action: action) {
             ZStack {
@@ -22,70 +22,65 @@ struct ColorCircle: View {
 }
 
 struct AddSubjectView: View {
-    @Environment(\.presentationMode) var presentationMode
-    @Binding var subjects: [String]
-    @State private var newSubjectName: String = ""
-    @State private var selectedColor: Color = .blue
+    @Binding var subjects: [Subject]
+    @Environment(\.dismiss) var dismiss
+    @State private var subjectName = ""
+    @State private var selectedColor: Color = .orange
+    @State private var isDefaultSelected = false
     
-    let colors: [Color] = [.blue, .purple, .pink, .orange, .yellow, .green]
+    // Update colors to match default subjects
+    let colors: [Color] = [.orange, .blue, .green]
     
     var body: some View {
         NavigationView {
-            VStack(alignment: .leading, spacing: 20) {
-                Text("Subject Name")
-                    .foregroundColor(.white)
-                    .font(.headline)
-                    .padding(.horizontal)
+            Form {
+                TextField("Subject Name", text: $subjectName)
                 
-                TextField("Enter subject name", text: $newSubjectName)
-                    .padding()
-                    .textFieldStyle(RoundedBorderTextFieldStyle())
-                    .frame(maxWidth: .infinity)
-                    .padding(.horizontal)
+                Toggle("Set as Default", isOn: $isDefaultSelected)
                 
-                Text("Subject Color")
-                    .foregroundColor(.white)
-                    .font(.headline)
-                    .padding(.horizontal)
-                
-                HStack(spacing: 15) {
-                    ForEach(colors, id: \.self) { color in
-                        ColorCircle(color: color, isSelected: selectedColor == color) {
-                            selectedColor = color
+                Section(header: Text("Color")) {
+                    HStack(spacing: 12) {
+                        ForEach(colors, id: \.self) { color in
+                            ColorCircle(
+                                color: color,
+                                isSelected: selectedColor == color,
+                                action: { selectedColor = color }
+                            )
                         }
                     }
                 }
-                .padding(.horizontal)
                 
-                Spacer()
-            }
-            .padding(.top, 20)
-            .toolbar {
-                ToolbarItem(placement: .principal) {
-                    Text("Add Subject")
-                        .foregroundColor(.white)
-                        .font(.headline)
+                if isDefaultSelected {
+                    Section(footer: Text("Default subjects are automatically selected in filters")) {
+                        Text("This subject will be selected by default")
+                            .foregroundColor(.gray)
+                    }
                 }
             }
+            .navigationTitle("Add Subject")
             .navigationBarItems(
                 leading: Button("Cancel") {
-                    presentationMode.wrappedValue.dismiss()
-                }
-                .foregroundColor(.orange),
-                trailing: Button(action: {
-                    if !newSubjectName.isEmpty {
-                        // Here you might want to save both the name and color
-                        subjects.append(newSubjectName)
-                        newSubjectName = ""
-                        presentationMode.wrappedValue.dismiss()
+                    dismiss()
+                },
+                trailing: Button("Add") {
+                    if !subjectName.isEmpty {
+                        // If this is set as default, update existing subjects
+                        if isDefaultSelected {
+                            subjects = subjects.map { subject in
+                                Subject(name: subject.name, color: subject.color, isDefaultSelected: false)
+                            }
+                        }
+                        
+                        // Add new subject
+                        subjects.append(Subject(
+                            name: subjectName,
+                            color: selectedColor,
+                            isDefaultSelected: isDefaultSelected
+                        ))
+                        dismiss()
                     }
-                }) {
-                    Text("Create")
-                        .foregroundColor(.orange)
-                        .font(.headline)
                 }
             )
-            .background(Color(red: 14 / 255, green: 17 / 255, blue: 22 / 255))
         }
     }
 }

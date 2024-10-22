@@ -6,8 +6,8 @@ struct SquaresView: View {
     let columns = 7
     let totalItems = 364
     @State private var daysOfWeek = ["S", "M", "T", "W", "T", "F", "S"]
-    let expandedHeight = 19 // Number of rows in the expanded rectangle
-
+    let expandedHeight = 19
+    
     @State private var blocksDropped = false
     @State private var selectedDate: Date? = nil
     @State private var showAlert = false
@@ -17,18 +17,62 @@ struct SquaresView: View {
     @State private var expandedRectangleTopIndex: Int = 0
     @State private var shouldScrollToTop = false
     @State private var selectedLocalWorkout: LocalWorkout?
+    @State private var refreshTrigger = false
     
     // Strava refresh
     @State private var isRefreshing = false
     @State private var selectedWorkoutDetails: WorkoutDetails?
     @EnvironmentObject var authManager: StravaAuthManager
     
+    // Initialize subjects with defaults
+    @State private var subjects: [Subject] = Subject.defaultSubjects()
+    
+    // Initialize selectedSubjects with all subjects except "Workouts" since it's the default view state
+    @State private var selectedSubjects: Set<Subject> = Set(Subject.defaultSubjects().filter { $0.name != "Workouts" && $0.isDefaultSelected })
+    
     @Environment(\.managedObjectContext) private var viewContext
-        
+    
     @FetchRequest(
         entity: LocalWorkout.entity(),
         sortDescriptors: [NSSortDescriptor(keyPath: \LocalWorkout.date, ascending: true)]
     ) var workouts: FetchedResults<LocalWorkout>
+    
+    private func shouldShowWorkout(_ workout: LocalWorkout?) -> Bool {
+        guard let workout = workout,
+              let workoutType = workout.type?.lowercased() else {
+            return false
+        }
+        
+        // If "Workouts" is selected, hide all workouts
+        if selectedSubjects.contains(where: { $0.name == "Workouts" }) {
+            return false
+        }
+        
+        // If no specific activity types are selected and Workouts isn't selected, show all workouts
+        let specificSubjects = selectedSubjects.filter { $0.name != "Workouts" }
+        if specificSubjects.isEmpty {
+            return true
+        }
+        
+        // Check if workout type matches any selected subject
+        return specificSubjects.contains { subject in
+            switch subject.name.lowercased() {
+            case "running":
+                return workoutType == "run"
+            case "cycling":
+                return workoutType == "ride"
+            default:
+                return subject.name.lowercased() == workoutType
+            }
+        }
+    }
+    
+    private func printWorkouts() {
+        print("Total workouts in CoreData: \(workouts.count)")
+        for workout in workouts {
+            print("Workout ID: \(workout.id), Date: \(workout.date?.description ?? "nil"), Type: \(workout.type ?? "nil")")
+        }
+    }
 
     var body: some View {
         ScrollViewReader { scrollProxy in
@@ -48,10 +92,23 @@ struct SquaresView: View {
                     .padding(.bottom, 10)
                     .background(Color(red: 14/255, green: 17/255, blue: 22/255))
                     
+                    SubjectFilterBar(
+                        subjects: subjects,
+                        selectedSubjects: Binding(
+                            get: { selectedSubjects },
+                            set: { newValue in
+                                withAnimation {
+                                    selectedSubjects = newValue
+                                    refreshTrigger.toggle()
+                                }
+                            }
+                        )
+                    )
+                    .padding(.bottom, 10)
+                    
                     // Existing content
                     Color.clear.frame(height: 1).id("top")
                     
-                    Color.clear.frame(height: 1).id("top")
                     VStack {
                         ZStack {
                             RoundedRectangle(cornerRadius: 8)
@@ -76,7 +133,7 @@ struct SquaresView: View {
                                 }
                                 .frame(height: 20)
                                 .padding(.bottom, 5)
-
+                                
                                 if isFullyExpanded {
                                     ZStack {
                                         RoundedRectangle(cornerRadius: 8)
@@ -121,10 +178,13 @@ struct SquaresView: View {
                         .background(Color(red: 14 / 255, green: 17 / 255, blue: 22 / 255))
                     }
                 }
+                .id(refreshTrigger)
                 .onAppear {
                     blocksDropped = true
                     alignDaysOfWeek()
+                    printWorkouts()
                 }
+                
             }
             .background(Color(red: 14 / 255, green: 17 / 255, blue: 22 / 255))
             .alert(isPresented: $showAlert) {
@@ -146,6 +206,20 @@ struct SquaresView: View {
                 resetView()
             }
         }
+    }
+    
+    private func workoutFor(date: Date) -> LocalWorkout? {
+        let calendar = Calendar.current
+        let dayStart = calendar.startOfDay(for: date)
+        let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart)!
+        
+        // Find any workout that falls within this day
+        let workout = workouts.first { workout in
+            guard let workoutDate = workout.date else { return false }
+            return workoutDate >= dayStart && workoutDate < dayEnd
+        }
+        
+        return shouldShowWorkout(workout) ? workout : nil
     }
     
     private var settingsButton: some View {
@@ -291,15 +365,16 @@ struct SquaresView: View {
         }
     }
     
-    private func workoutFor(date: Date) -> LocalWorkout? {
-        let calendar = Calendar.current
-        return workouts.first { calendar.isDate($0.date!, inSameDayAs: date) }
-    }
-    
     private func onSquareTap(date: Date, index: Int) {
         selectedDate = date
         if let workout = workoutFor(date: date) {
             selectedLocalWorkout = workout
+            if workout.detailedWorkout == nil {
+                print("Fetching detailed workout for ID: \(workout.id)")
+                fetchWorkoutDetails(for: workout.id)
+            } else {
+                print("Detailed workout already available for ID: \(workout.id)")
+            }
             startRippleEffect(from: index)
         } else {
             showAlert = true
@@ -325,17 +400,10 @@ struct SquaresView: View {
             self.isRefreshing = false
         }
     }
-
+    
     private func fetchWorkoutDetails(for workoutId: Int64) {
         guard let athleteId = authManager.athleteId else {
             print("Error: No athlete ID available")
-            return
-        }
-        
-        // Check if detailed workout already exists
-        if let existingWorkout = workouts.first(where: { $0.id == workoutId }),
-           existingWorkout.detailedWorkout != nil {
-            print("Detailed workout data already exists for workout ID: \(workoutId)")
             return
         }
         
@@ -344,6 +412,8 @@ struct SquaresView: View {
             print("Error: Invalid URL")
             return
         }
+        
+        print("Fetching workout details for workout ID: \(workoutId)")
         
         URLSession.shared.dataTask(with: url) { data, response, error in
             if let error = error {
@@ -357,52 +427,41 @@ struct SquaresView: View {
             }
             
             do {
-                if var jsonString = String(data: data, encoding: .utf8) {
-                    jsonString = jsonString.replacingOccurrences(of: ": ,", with: ": null,")
-                    jsonString = jsonString.replacingOccurrences(of: ":,", with: ":null,")
-                    
-                    if let cleanedData = jsonString.data(using: .utf8),
-                       let jsonResult = try JSONSerialization.jsonObject(with: cleanedData, options: []) as? [String: Any] {
-                        DispatchQueue.main.async {
-                            self.saveDetailedWorkout(jsonResult, for: workoutId)
-                        }
-                    } else {
-                        print("Error: Unable to parse cleaned JSON data")
+                if let jsonResult = try JSONSerialization.jsonObject(with: data, options: []) as? [String: Any] {
+                    print("Received workout details: \(jsonResult)")
+                    DispatchQueue.main.async {
+                        self.saveDetailedWorkout(jsonResult, for: workoutId)
                     }
                 } else {
-                    print("Error: Unable to convert data to string")
+                    print("Error: Unable to parse JSON data")
                 }
             } catch {
                 print("Error decoding workout details: \(error)")
             }
         }.resume()
     }
-
+    
     private func saveDetailedWorkout(_ details: [String: Any], for workoutId: Int64) {
         viewContext.perform {
             if let existingWorkout = self.workouts.first(where: { $0.id == workoutId }) {
-                if existingWorkout.detailedWorkout == nil {
-                    let newDetailedWorkout = DetailedWorkout(context: viewContext)
-                    self.updateDetailedWorkout(newDetailedWorkout, with: details)
-                    existingWorkout.detailedWorkout = newDetailedWorkout
-                    print("Saved new detailed workout data for workout ID: \(workoutId)")
-                } else {
-                    print("Detailed workout data already exists for workout ID: \(workoutId)")
+                let detailedWorkout = existingWorkout.detailedWorkout ?? DetailedWorkout(context: viewContext)
+                self.updateDetailedWorkout(detailedWorkout, with: details)
+                existingWorkout.detailedWorkout = detailedWorkout
+                print("Saved detailed workout data for workout ID: \(workoutId)")
+                
+                do {
+                    try viewContext.save()
+                    print("Core Data context saved successfully")
+                    self.selectedLocalWorkout = existingWorkout
+                } catch {
+                    print("Error saving detailed workout: \(error)")
                 }
             } else {
                 print("Error: No matching LocalWorkout found for workout ID: \(workoutId)")
             }
-            
-            do {
-                if viewContext.hasChanges {
-                    try viewContext.save()
-                }
-            } catch {
-                print("Error saving detailed workout: \(error)")
-            }
         }
     }
-
+    
     private func updateDetailedWorkout(_ detailedWorkout: DetailedWorkout, with details: [String: Any]) {
         detailedWorkout.average_heartrate = details["average_heartrate"] as? Double ?? 0
         detailedWorkout.average_speed = details["average_speed"] as? Double ?? 0
@@ -420,72 +479,69 @@ struct SquaresView: View {
         detailedWorkout.total_elevation_gain = details["total_elevation_gain"] as? Double ?? 0
         detailedWorkout.type = details["type"] as? String ?? ""
         detailedWorkout.workout_id = Int64(details["workout_id"] as? Int ?? 0)
+        
+        print("Updated detailed workout: \(detailedWorkout)")
     }
-   }
-
-   struct WorkoutDetailView: View {
-       let localWorkout: LocalWorkout
-       
-       var body: some View {
-           ScrollView {
-               VStack(alignment: .leading, spacing: 10) {
-                   Text(localWorkout.detailedWorkout?.name ?? "Unnamed Workout")
-                       .font(.title)
-                       .padding(.bottom)
-                   
-                   Group {
-                       DetailRow(title: "Type", value: localWorkout.detailedWorkout?.type ?? "Unknown")
-                       DetailRow(title: "Duration", value: formatDuration(Int(localWorkout.detailedWorkout?.elapsed_time ?? 0)))
-                       DetailRow(title: "Distance", value: String(format: "%.2f miles", localWorkout.distance / 1609.344))
-                       if let avgSpeed = localWorkout.detailedWorkout?.average_speed {
-                           DetailRow(title: "Average Speed", value: String(format: "%.2f mph", avgSpeed * 2.23694))
-                       }
-                       if let avgHeartRate = localWorkout.detailedWorkout?.average_heartrate, avgHeartRate > 0 {
-                           DetailRow(title: "Average Heart Rate", value: String(format: "%.0f bpm", avgHeartRate))
-                       }
-                       if let maxHeartRate = localWorkout.detailedWorkout?.max_heartrate, maxHeartRate > 0 {
-                           DetailRow(title: "Max Heart Rate", value: "\(maxHeartRate) bpm")
-                       }
-                       DetailRow(title: "Start Time", value: formatDate(localWorkout.date ?? Date()))
-                       if let elevationGain = localWorkout.detailedWorkout?.total_elevation_gain {
-                           DetailRow(title: "Elevation Gain", value: String(format: "%.1f ft", elevationGain * 3.28084))
-                       }
-                       if let elevLow = localWorkout.detailedWorkout?.elevation_low, !elevLow.isEmpty {
-                           DetailRow(title: "Elevation Low", value: String(format: "%.1f ft", (Double(elevLow) ?? 0) * 3.28084))
-                       }
-                       if let elevHigh = localWorkout.detailedWorkout?.elevation_high, !elevHigh.isEmpty {
-                           DetailRow(title: "Elevation High", value: String(format: "%.1f ft", (Double(elevHigh) ?? 0) * 3.28084))
-                       }
-                       if let movingTime = localWorkout.detailedWorkout?.moving_time {
-                           DetailRow(title: "Moving Time", value: formatDuration(Int(movingTime)))
-                       }
-                       if let maxSpeed = localWorkout.detailedWorkout?.max_speed {
-                           DetailRow(title: "Max Speed", value: String(format: "%.2f mph", maxSpeed * 2.23694))
-                       }
-                       if let timeZone = localWorkout.detailedWorkout?.time_zone {
-                           DetailRow(title: "Time Zone", value: timeZone)
-                       }
-                   }
-               }
-           }
-           .padding()
-           .foregroundColor(.white)
-       }
-       
-       private func formatDuration(_ seconds: Int) -> String {
-           let hours = seconds / 3600
-           let minutes = (seconds % 3600) / 60
-           let remainingSeconds = seconds % 60
-           return String(format: "%02d:%02d:%02d", hours, minutes, remainingSeconds)
-       }
-       
-       private func formatDate(_ date: Date) -> String {
-           let formatter = DateFormatter()
-           formatter.dateStyle = .medium
-           formatter.timeStyle = .short
-           return formatter.string(from: date)
-       }
-   }
+}
+    
+    struct WorkoutDetailView: View {
+        let localWorkout: LocalWorkout
+        
+        var body: some View {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text(localWorkout.detailedWorkout?.name ?? "Unnamed Workout")
+                        .font(.title)
+                        .padding(.bottom)
+                    
+                    Group {
+                        DetailRow(title: "Type", value: localWorkout.detailedWorkout?.type ?? "Unknown")
+                        DetailRow(title: "Duration", value: formatDuration(Int(localWorkout.detailedWorkout?.elapsed_time ?? 0)))
+                        DetailRow(title: "Distance", value: String(format: "%.2f miles", localWorkout.distance / 1609.344))
+                        if let avgSpeed = localWorkout.detailedWorkout?.average_speed {
+                            DetailRow(title: "Average Speed", value: String(format: "%.2f mph", avgSpeed * 2.23694))
+                        }
+                        if let avgHeartRate = localWorkout.detailedWorkout?.average_heartrate, avgHeartRate > 0 {
+                            DetailRow(title: "Average Heart Rate", value: String(format: "%.0f bpm", avgHeartRate))
+                        }
+                        if let maxHeartRate = localWorkout.detailedWorkout?.max_heartrate, maxHeartRate > 0 {
+                            DetailRow(title: "Max Heart Rate", value: "\(maxHeartRate) bpm")
+                        }
+                        DetailRow(title: "Start Time", value: formatDate(localWorkout.detailedWorkout?.start_date ?? Date()))
+                        if let elevationGain = localWorkout.detailedWorkout?.total_elevation_gain {
+                            DetailRow(title: "Elevation Gain", value: String(format: "%.1f ft", elevationGain * 3.28084))
+                        }
+                        if let elevLow = localWorkout.detailedWorkout?.elevation_low, !elevLow.isEmpty {
+                            DetailRow(title: "Elevation Low", value: String(format: "%.1f ft", (Double(elevLow) ?? 0) * 3.28084))
+                        }
+                        if let elevHigh = localWorkout.detailedWorkout?.elevation_high, !elevHigh.isEmpty {
+                            DetailRow(title: "Elevation High", value: String(format: "%.1f ft", (Double(elevHigh) ?? 0) * 3.28084))
+                        }
+                    }
+                }
+            }
+            .padding()
+            .foregroundColor(.white)
+            .onAppear {
+                print("WorkoutDetailView appeared for workout ID: \(localWorkout.id)")
+                print("Detailed workout: \(String(describing: localWorkout.detailedWorkout))")
+            }
+        }
+        
+        private func formatDuration(_ seconds: Int) -> String {
+            let hours = seconds / 3600
+            let minutes = (seconds % 3600) / 60
+            let remainingSeconds = seconds % 60
+            return String(format: "%02d:%02d:%02d", hours, minutes, remainingSeconds)
+        }
+        
+        private func formatDate(_ date: Date) -> String {
+            let formatter = DateFormatter()
+            formatter.dateStyle = .medium
+            formatter.timeStyle = .short
+            return formatter.string(from: date)
+        }
+    }
 
    struct DetailRow: View {
        let title: String
