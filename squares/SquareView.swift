@@ -10,30 +10,11 @@ struct SquareView: View {
     let workout: LocalWorkout?
     let onTap: () -> Void
     
-    private var fillColor: Color {
-        guard let workout = workout else {
+    private func getColorWithIntensity(baseColor: Color) -> Color {
+        guard let distance = workout?.distance else {
             return Color(red: 23/255, green: 27/255, blue: 33/255)
         }
         
-        // Get the activity type and find matching subject color
-        let activityType = workout.detailedWorkout?.sport_type ?? "Run"
-        return getColorForActivityType(activityType)
-    }
-    
-    private func getColorForActivityType(_ type: String) -> Color {
-        let baseColor: Color
-        switch type.lowercased() {
-        case "run", "running":
-            baseColor = .orange
-        case "ride", "cycling", "bike":
-            baseColor = .blue
-        case "swim", "swimming":
-            baseColor = .green
-        default:
-            baseColor = .purple
-        }
-        
-        let distance = workout?.distance ?? 0
         if distance < 1000 {
             return baseColor.opacity(0.3)
         } else if distance < 5000 {
@@ -46,11 +27,12 @@ struct SquareView: View {
     }
     
     var body: some View {
-        let color = WorkoutColors.getColor(for: workout?.type)
+        let baseColor = WorkoutColors.getColor(for: workout?.type)
+        let colorWithIntensity = getColorWithIntensity(baseColor: baseColor)
         
         Button(action: onTap) {
             RoundedRectangle(cornerRadius: isExpanded ? 0 : 8)
-                .fill(color)
+                .fill(colorWithIntensity)
                 .overlay(
                     RoundedRectangle(cornerRadius: isExpanded ? 0 : 8)
                         .stroke(Color(red: 14/255, green: 17/255, blue: 22/255), lineWidth: isExpanded ? 0 : 5)
