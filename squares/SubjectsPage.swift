@@ -6,10 +6,20 @@ struct Subject: Identifiable, Hashable {
     let color: Color
     var isDefaultSelected: Bool
     
+    // Add helper to get UIColor value for CoreData storage
+    var uiColor: UIColor {
+        UIColor(color)
+    }
+    
+    // Add helper to create from UIColor
+    static func color(from uiColor: UIColor) -> Color {
+        Color(uiColor)
+    }
+    
     static func defaultSubjects() -> [Subject] {
         [
-            Subject(name: "Workouts", color: .orange, isDefaultSelected: true),
-            Subject(name: "Running", color: .blue, isDefaultSelected: true),
+            Subject(name: "Workouts", color: .orange, isDefaultSelected: false),
+            Subject(name: "Running", color: .blue, isDefaultSelected: false),
             Subject(name: "Cycling", color: .green, isDefaultSelected: false)
         ]
     }
@@ -18,7 +28,7 @@ struct Subject: Identifiable, Hashable {
 struct SubjectsPage: View {
     @State private var showAddSubject = false
     @State private var subjects: [Subject] = [
-        Subject(name: "Running", color: .orange, isDefaultSelected: true),
+        Subject(name: "Running", color: .orange, isDefaultSelected: false),
         Subject(name: "Reading", color: .blue, isDefaultSelected: false),
         Subject(name: "Cycling", color: .green, isDefaultSelected: false)
     ]

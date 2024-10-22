@@ -46,9 +46,11 @@ struct SquareView: View {
     }
     
     var body: some View {
+        let color = WorkoutColors.getColor(for: workout?.type)
+        
         Button(action: onTap) {
             RoundedRectangle(cornerRadius: isExpanded ? 0 : 8)
-                .fill(fillColor)
+                .fill(color)
                 .overlay(
                     RoundedRectangle(cornerRadius: isExpanded ? 0 : 8)
                         .stroke(Color(red: 14/255, green: 17/255, blue: 22/255), lineWidth: isExpanded ? 0 : 5)

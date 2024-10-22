@@ -19,6 +19,8 @@ struct SquaresView: View {
     @State private var selectedLocalWorkout: LocalWorkout?
     @State private var refreshTrigger = false
     
+    @State private var selectedTypes: Set<String> = []
+    
     // Strava refresh
     @State private var isRefreshing = false
     @State private var selectedWorkoutDetails: WorkoutDetails?
@@ -39,32 +41,17 @@ struct SquaresView: View {
     
     private func shouldShowWorkout(_ workout: LocalWorkout?) -> Bool {
         guard let workout = workout,
-              let workoutType = workout.type?.lowercased() else {
+              let workoutType = workout.type else {
             return false
         }
         
-        // If "Workouts" is selected, hide all workouts
-        if selectedSubjects.contains(where: { $0.name == "Workouts" }) {
-            return false
-        }
-        
-        // If no specific activity types are selected and Workouts isn't selected, show all workouts
-        let specificSubjects = selectedSubjects.filter { $0.name != "Workouts" }
-        if specificSubjects.isEmpty {
+        // If no types are selected, show all workouts
+        if selectedTypes.isEmpty {
             return true
         }
         
-        // Check if workout type matches any selected subject
-        return specificSubjects.contains { subject in
-            switch subject.name.lowercased() {
-            case "running":
-                return workoutType == "run"
-            case "cycling":
-                return workoutType == "ride"
-            default:
-                return subject.name.lowercased() == workoutType
-            }
-        }
+        // Show workout if its type is selected
+        return selectedTypes.contains(workoutType)
     }
     
     private func printWorkouts() {
@@ -92,18 +79,8 @@ struct SquaresView: View {
                     .padding(.bottom, 10)
                     .background(Color(red: 14/255, green: 17/255, blue: 22/255))
                     
-                    SubjectFilterBar(
-                        subjects: subjects,
-                        selectedSubjects: Binding(
-                            get: { selectedSubjects },
-                            set: { newValue in
-                                withAnimation {
-                                    selectedSubjects = newValue
-                                    refreshTrigger.toggle()
-                                }
-                            }
-                        )
-                    )
+                    SubjectFilterBar(selectedTypes: $selectedTypes)
+
                     .padding(.bottom, 10)
                     
                     // Existing content
@@ -417,7 +394,7 @@ struct SquaresView: View {
         
         URLSession.shared.dataTask(with: url) { data, response, error in
             if let error = error {
-                print("Error fetching workout details: \(error)")
+                print("Network error fetching workout details: \(error)")
                 return
             }
             
@@ -426,28 +403,65 @@ struct SquaresView: View {
                 return
             }
             
-            do {
-                if let jsonResult = try JSONSerialization.jsonObject(with: data, options: []) as? [String: Any] {
-                    print("Received workout details: \(jsonResult)")
-                    DispatchQueue.main.async {
-                        self.saveDetailedWorkout(jsonResult, for: workoutId)
-                    }
-                } else {
-                    print("Error: Unable to parse JSON data")
+            // Clean up the JSON response by replacing empty values with null
+            if var jsonString = String(data: data, encoding: .utf8) {
+                jsonString = jsonString.replacingOccurrences(of: ": ,", with: ": null,")
+                jsonString = jsonString.replacingOccurrences(of: ": \n", with: ": null\n")
+                
+                guard let cleanedData = jsonString.data(using: .utf8) else {
+                    print("Error: Could not create cleaned data")
+                    return
                 }
-            } catch {
-                print("Error decoding workout details: \(error)")
+                
+                do {
+                    if let jsonResult = try JSONSerialization.jsonObject(with: cleanedData) as? [String: Any] {
+                        print("Successfully parsed workout details")
+                        DispatchQueue.main.async {
+                            self.saveDetailedWorkout(jsonResult, for: workoutId)
+                        }
+                    }
+                } catch {
+                    print("JSON Parsing error: \(error)")
+                    print("Cleaned JSON string: \(jsonString)")
+                }
             }
         }.resume()
     }
-    
+
     private func saveDetailedWorkout(_ details: [String: Any], for workoutId: Int64) {
         viewContext.perform {
             if let existingWorkout = self.workouts.first(where: { $0.id == workoutId }) {
                 let detailedWorkout = existingWorkout.detailedWorkout ?? DetailedWorkout(context: viewContext)
-                self.updateDetailedWorkout(detailedWorkout, with: details)
+                
+                // Handle potential nil or NSNull values
+                detailedWorkout.average_heartrate = (details["average_heartrate"] as? NSNumber)?.doubleValue ?? 0
+                detailedWorkout.average_speed = (details["average_speed"] as? NSNumber)?.doubleValue ?? 0
+                detailedWorkout.elapsed_time = Int64(details["elapsed_time"] as? Int ?? 0)
+                detailedWorkout.elevation_high = (details["elevation_high"] as? String) ?? ""
+                detailedWorkout.elevation_low = (details["elevation_low"] as? String) ?? ""
+                detailedWorkout.max_heartrate = Int64((details["max_heartrate"] as? NSNumber)?.intValue ?? 0)
+                detailedWorkout.max_speed = (details["max_speed"] as? NSNumber)?.doubleValue ?? 0
+                detailedWorkout.moving_time = Int64(details["moving_time"] as? Int ?? 0)
+                detailedWorkout.name = (details["name"] as? String) ?? ""
+                detailedWorkout.sport_type = (details["sport_type"] as? String) ?? ""
+                
+                // Handle date parsing
+                let dateFormatter = ISO8601DateFormatter()
+                if let startDateString = details["start_date"] as? String {
+                    detailedWorkout.start_date = dateFormatter.date(from: startDateString) ?? Date()
+                }
+                if let startDateLocalString = details["start_date_local"] as? String {
+                    detailedWorkout.start_date_local = dateFormatter.date(from: startDateLocalString) ?? Date()
+                }
+                
+                detailedWorkout.time_zone = (details["time_zone"] as? String) ?? ""
+                detailedWorkout.total_elevation_gain = (details["total_elevation_gain"] as? NSNumber)?.doubleValue ?? 0
+                detailedWorkout.type = (details["type"] as? String) ?? ""
+                detailedWorkout.workout_id = workoutId
+                
                 existingWorkout.detailedWorkout = detailedWorkout
-                print("Saved detailed workout data for workout ID: \(workoutId)")
+                
+                print("Saving detailed workout data for workout ID: \(workoutId)")
                 
                 do {
                     try viewContext.save()
@@ -456,8 +470,6 @@ struct SquaresView: View {
                 } catch {
                     print("Error saving detailed workout: \(error)")
                 }
-            } else {
-                print("Error: No matching LocalWorkout found for workout ID: \(workoutId)")
             }
         }
     }

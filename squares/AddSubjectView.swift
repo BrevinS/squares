@@ -28,8 +28,11 @@ struct AddSubjectView: View {
     @State private var selectedColor: Color = .orange
     @State private var isDefaultSelected = false
     
-    // Update colors to match default subjects
-    let colors: [Color] = [.orange, .blue, .green]
+    // Expanded color options
+    let colors: [Color] = [
+        .orange, .blue, .green, .red, .purple,
+        .yellow, .pink, .indigo, .cyan, .mint
+    ]
     
     var body: some View {
         NavigationView {
@@ -39,15 +42,28 @@ struct AddSubjectView: View {
                 Toggle("Set as Default", isOn: $isDefaultSelected)
                 
                 Section(header: Text("Color")) {
-                    HStack(spacing: 12) {
-                        ForEach(colors, id: \.self) { color in
-                            ColorCircle(
-                                color: color,
-                                isSelected: selectedColor == color,
-                                action: { selectedColor = color }
+                    VStack(spacing: 12) {
+                        // Color preview
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(selectedColor)
+                            .frame(height: 60)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .stroke(Color.gray.opacity(0.3), lineWidth: 1)
                             )
+                        
+                        // Color grid
+                        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 5), spacing: 12) {
+                            ForEach(colors, id: \.self) { color in
+                                ColorCircle(
+                                    color: color,
+                                    isSelected: selectedColor == color,
+                                    action: { selectedColor = color }
+                                )
+                            }
                         }
                     }
+                    .padding(.vertical, 8)
                 }
                 
                 if isDefaultSelected {
@@ -64,14 +80,12 @@ struct AddSubjectView: View {
                 },
                 trailing: Button("Add") {
                     if !subjectName.isEmpty {
-                        // If this is set as default, update existing subjects
                         if isDefaultSelected {
                             subjects = subjects.map { subject in
                                 Subject(name: subject.name, color: subject.color, isDefaultSelected: false)
                             }
                         }
                         
-                        // Add new subject
                         subjects.append(Subject(
                             name: subjectName,
                             color: selectedColor,
