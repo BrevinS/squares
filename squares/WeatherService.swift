@@ -1,4 +1,3 @@
-// WeatherService.swift
 import Foundation
 import CoreLocation
 
@@ -9,29 +8,46 @@ struct HourlyTemperature: Identifiable {
     let time: Date
 }
 
-// Updated to match OpenWeatherMap's actual response structure
+// Updated for OpenWeatherMap API 3.0
 struct WeatherResponse: Codable {
     let hourly: [HourlyData]
     let current: CurrentData
     
     struct HourlyData: Codable {
-        let dt: Int // Unix timestamp
-        let temp: Double
-        let feels_like: Double
-        let pressure: Int
+        let time: Int // Unix timestamp
+        let temperature: Temperature
         let humidity: Int
-        let clouds: Int
         let weather: [WeatherDescription]
+        
+        enum CodingKeys: String, CodingKey {
+            case time = "dt"
+            case temperature = "temp"
+            case humidity
+            case weather
+        }
     }
     
     struct CurrentData: Codable {
-        let dt: Int
-        let temp: Double
-        let feels_like: Double
-        let pressure: Int
+        let time: Int
+        let temperature: Temperature
         let humidity: Int
-        let clouds: Int
         let weather: [WeatherDescription]
+        
+        enum CodingKeys: String, CodingKey {
+            case time = "dt"
+            case temperature = "temp"
+            case humidity
+            case weather
+        }
+    }
+    
+    struct Temperature: Codable {
+        let value: Double
+        
+        init(from decoder: Decoder) throws {
+            let container = try decoder.singleValueContainer()
+            value = try container.decode(Double.self)
+        }
     }
     
     struct WeatherDescription: Codable {
@@ -48,15 +64,14 @@ class WeatherService: ObservableObject {
     @Published var isLoading = true
     @Published var error: Error?
     
-    // Use your API key from OpenWeatherMap
-    private let apiKey = "--------------------------------"
+    private let apiKey = "-------------------------------"
     private let locationManager = CLLocationManager()
     
     init() {
         locationManager.requestWhenInUseAuthorization()
     }
     
-    func fetchDailyTemperatures() {
+    func fetchDailyTemperatures() async {
         isLoading = true
         
         guard let location = locationManager.location else {
@@ -65,8 +80,7 @@ class WeatherService: ObservableObject {
             return
         }
         
-        // Updated URL to use correct API endpoint and version
-        let urlString = "https://api.openweathermap.org/data/2.5/onecall?lat=\(location.coordinate.latitude)&lon=\(location.coordinate.longitude)&exclude=minutely,daily,alerts&units=imperial&appid=\(apiKey)"
+        let urlString = "https://api.openweathermap.org/data/3.0/onecall?lat=\(location.coordinate.latitude)&lon=\(location.coordinate.longitude)&exclude=minutely,daily,alerts&units=imperial&appid=\(apiKey)"
         
         guard let url = URL(string: urlString) else {
             error = NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid URL"])
@@ -74,73 +88,41 @@ class WeatherService: ObservableObject {
             return
         }
         
-        print("Fetching weather data from: \(urlString)") // Debug print
-        
-        URLSession.shared.dataTask(with: url) { [weak self] data, response, error in
-            DispatchQueue.main.async {
-                if let error = error {
-                    self?.error = error
-                    self?.isLoading = false
-                    print("Network error: \(error.localizedDescription)") // Debug print
-                    return
-                }
-                
-                guard let data = data else {
-                    self?.error = NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "No data received"])
-                    self?.isLoading = false
-                    return
-                }
-                
-                // Debug print the raw JSON response
-                if let jsonString = String(data: data, encoding: .utf8) {
-                    print("Raw JSON response: \(jsonString)")
-                }
-                
-                do {
-                    let decoder = JSONDecoder()
-                    let weather = try decoder.decode(WeatherResponse.self, from: data)
-                    
-                    let calendar = Calendar.current
-                    let startOfDay = calendar.startOfDay(for: Date())
-                    let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay)!
-                    
-                    self?.hourlyTemperatures = weather.hourly
-                        .filter { hourly in
-                            let date = Date(timeIntervalSince1970: TimeInterval(hourly.dt))
-                            return date >= startOfDay && date < endOfDay
-                        }
-                        .map { hourly in
-                            let date = Date(timeIntervalSince1970: TimeInterval(hourly.dt))
-                            return HourlyTemperature(
-                                hour: calendar.component(.hour, from: date),
-                                temperature: hourly.temp,
-                                time: date
-                            )
-                        }
-                    
-                    self?.currentTemp = weather.current.temp
-                    print("Successfully parsed weather data. Current temp: \(weather.current.temp)°F") // Debug print
-                    self?.isLoading = false
-                } catch {
-                    self?.error = error
-                    self?.isLoading = false
-                    print("Decoding error: \(error.localizedDescription)") // Debug print
-                    if let decodingError = error as? DecodingError {
-                        switch decodingError {
-                        case .keyNotFound(let key, let context):
-                            print("Key '\(key.stringValue)' not found:", context.debugDescription)
-                        case .typeMismatch(let type, let context):
-                            print("Type '\(type)' mismatch:", context.debugDescription)
-                        case .valueNotFound(let type, let context):
-                            print("Value of type '\(type)' not found:", context.debugDescription)
-                        case .dataCorrupted(let context):
-                            print("Data corrupted:", context.debugDescription)
-                        @unknown default:
-                            print("Unknown decoding error")
-                        }
+        do {
+            let (data, _) = try await URLSession.shared.data(from: url)
+            
+            let decoder = JSONDecoder()
+            let weather = try decoder.decode(WeatherResponse.self, from: data)
+            
+            let calendar = Calendar.current
+            let startOfDay = calendar.startOfDay(for: Date())
+            let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay)!
+            
+            await MainActor.run {
+                self.hourlyTemperatures = weather.hourly
+                    .filter { hourly in
+                        let date = Date(timeIntervalSince1970: TimeInterval(hourly.time))
+                        return date >= startOfDay && date < endOfDay
                     }
-                }
+                    .map { hourly in
+                        let date = Date(timeIntervalSince1970: TimeInterval(hourly.time))
+                        return HourlyTemperature(
+                            hour: calendar.component(.hour, from: date),
+                            temperature: hourly.temperature.value,
+                            time: date
+                        )
+                    }
+                
+                self.currentTemp = weather.current.temperature.value
+                self.isLoading = false
             }
-        }.resume()
+            
+        } catch {
+            await MainActor.run {
+                self.error = error
+                self.isLoading = false
+            }
+            print("Error fetching weather: \(error.localizedDescription)")
+        }
     }
 }
