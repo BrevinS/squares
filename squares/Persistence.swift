@@ -6,12 +6,14 @@ struct PersistenceController {
     static var preview: PersistenceController = {
         let result = PersistenceController(inMemory: true)
         let viewContext = result.container.viewContext
+        
+        // Create sample workouts
         for _ in 0..<10 {
             let newWorkout = LocalWorkout(context: viewContext)
             newWorkout.id = Int64.random(in: 1...1000)
             newWorkout.date = Date()
             newWorkout.distance = Double.random(in: 1000...15000)
-            newWorkout.type = "Run"  // Add type to preview data
+            newWorkout.type = "Run"
             
             let detailedWorkout = DetailedWorkout(context: viewContext)
             detailedWorkout.workout_id = newWorkout.id
@@ -31,6 +33,19 @@ struct PersistenceController {
             
             newWorkout.detailedWorkout = detailedWorkout
         }
+        
+        // Create sample weight measurements
+        let calendar = Calendar.current
+        let today = Date()
+        for day in 0..<7 {
+            if let date = calendar.date(byAdding: .day, value: -day, to: today) {
+                let weightMeasurement = WeightMeasurement(context: viewContext)
+                weightMeasurement.id = UUID()
+                weightMeasurement.date = date
+                weightMeasurement.weight = Double.random(in: 150...160) // Sample weight range
+            }
+        }
+        
         do {
             try viewContext.save()
         } catch {

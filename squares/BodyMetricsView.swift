@@ -9,10 +9,11 @@ struct BodyMetricsView: View {
                     .foregroundColor(.orange)
                     .padding(.top)
                 
-                TemperatureModuleView()
+                WeightModuleView()
                     .padding(.horizontal)
                 
-                // Add more vertical modules here
+                TemperatureModuleView()
+                    .padding(.horizontal)
                 
                 Spacer()
             }
@@ -25,5 +26,6 @@ struct BodyMetricsView: View {
 struct BodyMetricsView_Previews: PreviewProvider {
     static var previews: some View {
         BodyMetricsView()
+            .environment(\.managedObjectContext, PersistenceController.preview.container.viewContext)
     }
 }

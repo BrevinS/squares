@@ -26,4 +26,9 @@
         <attribute name="type" optional="YES" attributeType="String"/>
         <relationship name="detailedWorkout" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="DetailedWorkout" inverseName="localWorkout" inverseEntity="DetailedWorkout"/>
     </entity>
+    <entity name="WeightMeasurement" representedClassName="WeightMeasurement" syncable="YES" codeGenerationType="class">
+        <attribute name="date" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="id" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="weight" optional="YES" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES"/>
+    </entity>
 </model>
