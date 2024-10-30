@@ -33,10 +33,16 @@ struct ContentView: View {
                     }
                     .tag(2)
 
-                    VStack {
+                    /*VStack {
                         NoteGraphView()
                     }
-                    .tag(3)
+                    .tag(4)*/
+                    
+                    VStack {
+                        Text("Body Metrics")
+                        BodyMetricsView()
+                    }
+                    .tag(3)  // Or whatever tag number works for your navigation
                 }
                 .tabViewStyle(PageTabViewStyle(indexDisplayMode: .never))
                 
@@ -82,8 +88,22 @@ struct ContentView: View {
                         }
                     }
                     .frame(maxWidth: .infinity)
-
+                    
                     Button(action: {
+                        selectedTab = 4  // Or whatever tag number you used
+                    }) {
+                        VStack {
+                            Image(systemName: "scalemass")
+                                .font(.system(size: 30))
+                                .foregroundColor(Color(.systemOrange))
+                            if selectedTab == 4 {
+                                // Selected state styling if needed
+                            }
+                        }
+                    }
+                    .frame(maxWidth: .infinity)
+                    // Note exploring this path for now
+                    /*Button(action: {
                         selectedTab = 3
                     }) {
                         VStack {
@@ -95,7 +115,7 @@ struct ContentView: View {
                             }
                         }
                     }
-                    .frame(maxWidth: .infinity)
+                    .frame(maxWidth: .infinity)*/
                 }
                 .padding()
             }

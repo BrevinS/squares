@@ -21,6 +21,9 @@
 		1E8D61192CB60A96007BA51C /* Metal.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1E8D61182CB60A96007BA51C /* Metal.framework */; };
 		1E8D611B2CB60A9E007BA51C /* MetalKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1E8D611A2CB60A9E007BA51C /* MetalKit.framework */; };
 		1E8D611D2CB60AF9007BA51C /* Shaders.metal in Sources */ = {isa = PBXBuildFile; fileRef = 1E8D611C2CB60AF9007BA51C /* Shaders.metal */; };
+		1E8F81882CD1C8C900FFCBCB /* BodyMetricsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E8F81872CD1C8C900FFCBCB /* BodyMetricsView.swift */; };
+		1E8F818A2CD1CB3000FFCBCB /* WeatherService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E8F81892CD1CB3000FFCBCB /* WeatherService.swift */; };
+		1E8F818C2CD1CB5700FFCBCB /* TemperatureModuleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E8F818B2CD1CB5700FFCBCB /* TemperatureModuleView.swift */; };
 		1E9081892CACFA40004CB1D2 /* Persistence.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E9081882CACFA40004CB1D2 /* Persistence.swift */; };
 		1E90818C2CACFED2004CB1D2 /* LocalWorkout.xcdatamodeld in Sources */ = {isa = PBXBuildFile; fileRef = 1E90818A2CACFED2004CB1D2 /* LocalWorkout.xcdatamodeld */; };
 		1EB4443B2CC7246400DA5DE2 /* ChipTagView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1EB4443A2CC7246400DA5DE2 /* ChipTagView.swift */; };
@@ -47,6 +50,9 @@
 		1E8D61182CB60A96007BA51C /* Metal.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Metal.framework; path = System/Library/Frameworks/Metal.framework; sourceTree = SDKROOT; };
 		1E8D611A2CB60A9E007BA51C /* MetalKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MetalKit.framework; path = System/Library/Frameworks/MetalKit.framework; sourceTree = SDKROOT; };
 		1E8D611C2CB60AF9007BA51C /* Shaders.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = Shaders.metal; sourceTree = "<group>"; };
+		1E8F81872CD1C8C900FFCBCB /* BodyMetricsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BodyMetricsView.swift; sourceTree = "<group>"; };
+		1E8F81892CD1CB3000FFCBCB /* WeatherService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeatherService.swift; sourceTree = "<group>"; };
+		1E8F818B2CD1CB5700FFCBCB /* TemperatureModuleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TemperatureModuleView.swift; sourceTree = "<group>"; };
 		1E9081882CACFA40004CB1D2 /* Persistence.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Persistence.swift; sourceTree = "<group>"; };
 		1E90818B2CACFED2004CB1D2 /* LocalWorkout.xcdatamodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodel; path = LocalWorkout.xcdatamodel; sourceTree = "<group>"; };
 		1EB4443A2CC7246400DA5DE2 /* ChipTagView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChipTagView.swift; sourceTree = "<group>"; };
@@ -109,6 +115,9 @@
 				1E17117C2CB4F16500CB574D /* NoteGraphViewModel.swift */,
 				1E8D61152CB6080E007BA51C /* MetalGraphRenderer.swift */,
 				1EB4443A2CC7246400DA5DE2 /* ChipTagView.swift */,
+				1E8F81872CD1C8C900FFCBCB /* BodyMetricsView.swift */,
+				1E8F81892CD1CB3000FFCBCB /* WeatherService.swift */,
+				1E8F818B2CD1CB5700FFCBCB /* TemperatureModuleView.swift */,
 			);
 			path = squares;
 			sourceTree = "<group>";
@@ -209,13 +218,16 @@
 				1E17117D2CB4F16500CB574D /* NoteGraphViewModel.swift in Sources */,
 				1EEAE0FA2C94A0B900497F8F /* SquareView.swift in Sources */,
 				1E8D611D2CB60AF9007BA51C /* Shaders.metal in Sources */,
+				1E8F818C2CD1CB5700FFCBCB /* TemperatureModuleView.swift in Sources */,
 				1E8B3FEA2C93964800A9BF3F /* SquaresView.swift in Sources */,
 				1EEAE1002C94C14400497F8F /* SubjectsPage.swift in Sources */,
+				1E8F818A2CD1CB3000FFCBCB /* WeatherService.swift in Sources */,
 				1EEAE0F62C948E7300497F8F /* AddActivity.swift in Sources */,
 				1EB4443B2CC7246400DA5DE2 /* ChipTagView.swift in Sources */,
 				1E1711792CB4D08700CB574D /* WorkoutDetails.swift in Sources */,
 				1EEAE1022C94C16300497F8F /* AddSubjectView.swift in Sources */,
 				1E1711772CB4D04700CB574D /* ShakeGesture.swift in Sources */,
+				1E8F81882CD1C8C900FFCBCB /* BodyMetricsView.swift in Sources */,
 				1E49FFC42C93845F00BB140C /* squaresApp.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
