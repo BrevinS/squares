@@ -19,5 +19,9 @@
     <array>
         <string>strava</string>
     </array>
+    <key>NSLocationWhenInUseUsageDescription</key>
+    <string>We need your location to show local weather information</string>
+    <key>WeatherKitUsageDescription</key>
+    <string>We use WeatherKit to provide accurate weather information</string>
 </dict>
 </plist>

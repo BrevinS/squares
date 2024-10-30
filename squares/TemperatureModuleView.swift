@@ -1,6 +1,7 @@
 // TemperatureModuleView.swift
 import SwiftUI
 import Charts
+import WeatherKit
 
 struct TemperatureModuleView: View {
     @StateObject private var weatherService = WeatherService()
@@ -10,12 +11,28 @@ struct TemperatureModuleView: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("Today's Temperature")
-                .font(.headline)
-                .foregroundColor(.orange)
+            HStack {
+                Text("Today's Temperature")
+                    .font(.headline)
+                    .foregroundColor(.orange)
+                
+                Spacer()
+                
+                if let currentTemp = weatherService.currentTemp {
+                    Text(String(format: "%.1f°F", currentTemp))
+                        .font(.headline)
+                        .foregroundColor(.white)
+                }
+            }
             
             if weatherService.isLoading {
                 ProgressView()
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 200)
+            } else if let error = weatherService.error {
+                Text("Error: \(error.localizedDescription)")
+                    .foregroundColor(.red)
+                    .frame(maxWidth: .infinity)
                     .frame(height: 200)
             } else {
                 tempChart
@@ -24,11 +41,14 @@ struct TemperatureModuleView: View {
         .padding()
         .background(Color(red: 23/255, green: 27/255, blue: 33/255))
         .cornerRadius(12)
-        .onAppear {
-            weatherService.fetchDailyTemperatures()
+        .task {
+            await weatherService.fetchDailyTemperatures()
         }
         .onReceive(timer) { time in
             currentTime = time
+            Task {
+                await weatherService.fetchDailyTemperatures()
+            }
         }
     }
     
@@ -40,6 +60,7 @@ struct TemperatureModuleView: View {
                     y: .value("Temperature", temp.temperature)
                 )
                 .foregroundStyle(.orange.gradient)
+                .interpolationMethod(.catmullRom)
             }
             
             RuleMark(x: .value("Current Time", currentTime))
@@ -69,6 +90,7 @@ struct TemperatureModuleView: View {
                 AxisGridLine()
                 AxisTick()
                 AxisValueLabel(format: .dateTime.hour())
+                    .foregroundStyle(.white)
             }
         }
         .chartYAxis {
@@ -85,18 +107,5 @@ struct TemperatureModuleView: View {
         }
         .frame(height: 200)
         .chartYScale(domain: .automatic(includesZero: false))
-    }
-}
-
-struct TemperatureModuleView_Previews: PreviewProvider {
-    static var previews: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 16) {
-                TemperatureModuleView()
-                    .frame(width: 350)
-            }
-            .padding()
-        }
-        .background(Color(red: 14/255, green: 17/255, blue: 22/255))
     }
 }

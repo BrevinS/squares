@@ -25,24 +25,26 @@ struct ContentView: View {
                             .environment(\.managedObjectContext, viewContext)
                     }
                     .tag(1)
-
+                    
+                    VStack {
+                        Text("Body Metrics")
+                        BodyMetricsView()
+                    }
+                    .tag(2)  // Or whatever tag number works for your navigation
+                    
                     VStack {
                         AddActivity()
                             .environmentObject(authManager)
                             .environment(\.managedObjectContext, viewContext)
                     }
-                    .tag(2)
+                    .tag(3)
 
                     /*VStack {
                         NoteGraphView()
                     }
                     .tag(4)*/
                     
-                    VStack {
-                        Text("Body Metrics")
-                        BodyMetricsView()
-                    }
-                    .tag(3)  // Or whatever tag number works for your navigation
+                    
                 }
                 .tabViewStyle(PageTabViewStyle(indexDisplayMode: .never))
                 
@@ -74,34 +76,36 @@ struct ContentView: View {
                         }
                     }
                     .frame(maxWidth: .infinity)
-
-                    Button(action: {
-                        selectedTab = 2
-                    }) {
-                        VStack {
-                            Image(systemName: "folder.badge.plus")
-                                .font(.system(size: 30))
-                                .foregroundColor(Color(.systemOrange))
-                            if selectedTab == 2 {
-                                // WHEN SELECTED
-                            }
-                        }
-                    }
-                    .frame(maxWidth: .infinity)
                     
                     Button(action: {
-                        selectedTab = 4  // Or whatever tag number you used
+                        selectedTab = 2  // Or whatever tag number you used
                     }) {
                         VStack {
                             Image(systemName: "scalemass")
                                 .font(.system(size: 30))
                                 .foregroundColor(Color(.systemOrange))
-                            if selectedTab == 4 {
+                            if selectedTab == 2 {
                                 // Selected state styling if needed
                             }
                         }
                     }
                     .frame(maxWidth: .infinity)
+                    
+
+                    Button(action: {
+                        selectedTab = 3
+                    }) {
+                        VStack {
+                            Image(systemName: "folder.badge.plus")
+                                .font(.system(size: 30))
+                                .foregroundColor(Color(.systemOrange))
+                            if selectedTab == 3 {
+                                // WHEN SELECTED
+                            }
+                        }
+                    }
+                    .frame(maxWidth: .infinity)
+                
                     // Note exploring this path for now
                     /*Button(action: {
                         selectedTab = 3
