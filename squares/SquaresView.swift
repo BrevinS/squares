@@ -21,6 +21,12 @@ struct SquaresView: View {
     
     @State private var selectedTypes: Set<String> = []
     
+    // Card Variables
+    @State private var cardRotation: Double = 0
+    @State private var cardScale: CGFloat = 1
+    @State private var cardOpacity: Double = 1
+    @State private var selectedSquarePosition: CGPoint = .zero
+    
     // Strava refresh
     @State private var isRefreshing = false
     @State private var selectedWorkoutDetails: WorkoutDetails?
@@ -140,6 +146,16 @@ struct SquaresView: View {
                                                 .scaleEffect(2)
                                         }
                                     }
+                                    .rotation3DEffect(
+                                        .degrees(cardRotation),
+                                        axis: (x: 0, y: 1, z: 0)
+                                    )
+                                    .scaleEffect(cardScale)
+                                    .opacity(cardOpacity)
+                                    .animation(.easeInOut(duration: 0.5), value: cardRotation)
+                                    .animation(.easeInOut(duration: 0.5), value: cardScale)
+                                    .animation(.easeInOut(duration: 0.5), value: cardOpacity)
+                                    
                                 } else {
                                     LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 1), count: columns), spacing: 1) {
                                         ForEach((0..<totalItems).reversed(), id: \.self) { index in
@@ -338,20 +354,35 @@ struct SquaresView: View {
     }
     
     private func resetView() {
-        withAnimation(.easeInOut(duration: 0.3)) {
-            blocksDropped = false
-            selectedDate = nil
-            expandedSquares.removeAll()
-            isExpanding = false
-            isFullyExpanded = false
-            expandedRectangleTopIndex = 0
-            shouldScrollToTop = false
-            selectedWorkoutDetails = nil
+        // Start the card flip animation
+        withAnimation(.easeInOut(duration: 0.5)) {
+            cardRotation = 90
+            cardScale = 0.5
+            cardOpacity = 0
         }
         
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+        // After the animation completes, reset the view state
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
             withAnimation(.easeInOut(duration: 0.3)) {
-                blocksDropped = true
+                blocksDropped = false
+                selectedDate = nil
+                expandedSquares.removeAll()
+                isExpanding = false
+                isFullyExpanded = false
+                expandedRectangleTopIndex = 0
+                shouldScrollToTop = false
+                selectedWorkoutDetails = nil
+                
+                // Reset the animation properties for next time
+                cardRotation = 0
+                cardScale = 1
+                cardOpacity = 1
+            }
+            
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    blocksDropped = true
+                }
             }
         }
     }
@@ -366,6 +397,12 @@ struct SquaresView: View {
             } else {
                 print("Detailed workout already available for ID: \(workout.id)")
             }
+            
+            // Reset animation properties
+            cardRotation = 0
+            cardScale = 1
+            cardOpacity = 1
+            
             startRippleEffect(from: index)
         } else {
             showAlert = true
@@ -510,64 +547,69 @@ struct SquaresView: View {
     }
 }
     
-    struct WorkoutDetailView: View {
-        let localWorkout: LocalWorkout
-        
-        var body: some View {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 10) {
-                    Text(localWorkout.detailedWorkout?.name ?? "Unnamed Workout")
-                        .font(.title)
-                        .padding(.bottom)
-                    
-                    Group {
-                        DetailRow(title: "Type", value: localWorkout.detailedWorkout?.type ?? "Unknown")
-                        DetailRow(title: "Duration", value: formatDuration(Int(localWorkout.detailedWorkout?.elapsed_time ?? 0)))
-                        DetailRow(title: "Distance", value: String(format: "%.2f miles", localWorkout.distance / 1609.344))
-                        if let avgSpeed = localWorkout.detailedWorkout?.average_speed {
-                            DetailRow(title: "Average Speed", value: String(format: "%.2f mph", avgSpeed * 2.23694))
-                        }
-                        if let avgHeartRate = localWorkout.detailedWorkout?.average_heartrate, avgHeartRate > 0 {
-                            DetailRow(title: "Average Heart Rate", value: String(format: "%.0f bpm", avgHeartRate))
-                        }
-                        if let maxHeartRate = localWorkout.detailedWorkout?.max_heartrate, maxHeartRate > 0 {
-                            DetailRow(title: "Max Heart Rate", value: "\(maxHeartRate) bpm")
-                        }
-                        DetailRow(title: "Start Time", value: formatDate(localWorkout.detailedWorkout?.start_date ?? Date()))
-                        if let elevationGain = localWorkout.detailedWorkout?.total_elevation_gain {
-                            DetailRow(title: "Elevation Gain", value: String(format: "%.1f ft", elevationGain * 3.28084))
-                        }
-                        if let elevLow = localWorkout.detailedWorkout?.elevation_low, !elevLow.isEmpty {
-                            DetailRow(title: "Elevation Low", value: String(format: "%.1f ft", (Double(elevLow) ?? 0) * 3.28084))
-                        }
-                        if let elevHigh = localWorkout.detailedWorkout?.elevation_high, !elevHigh.isEmpty {
-                            DetailRow(title: "Elevation High", value: String(format: "%.1f ft", (Double(elevHigh) ?? 0) * 3.28084))
-                        }
-                    }
+struct WorkoutDetailView: View {
+let localWorkout: LocalWorkout
+
+var body: some View {
+    ScrollView {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(localWorkout.detailedWorkout?.name ?? "Unnamed Workout")
+                .font(.title)
+                .padding(.bottom)
+            
+            Group {
+                DetailRow(title: "Type", value: localWorkout.detailedWorkout?.type ?? "Unknown")
+                DetailRow(title: "Duration", value: formatDuration(Int(localWorkout.detailedWorkout?.elapsed_time ?? 0)))
+                DetailRow(title: "Distance", value: String(format: "%.2f miles", localWorkout.distance / 1609.344))
+                if let avgSpeed = localWorkout.detailedWorkout?.average_speed {
+                    DetailRow(title: "Average Speed", value: String(format: "%.2f mph", avgSpeed * 2.23694))
+                }
+                if let avgHeartRate = localWorkout.detailedWorkout?.average_heartrate, avgHeartRate > 0 {
+                    DetailRow(title: "Average Heart Rate", value: String(format: "%.0f bpm", avgHeartRate))
+                }
+                if let maxHeartRate = localWorkout.detailedWorkout?.max_heartrate, maxHeartRate > 0 {
+                    DetailRow(title: "Max Heart Rate", value: "\(maxHeartRate) bpm")
+                }
+                DetailRow(title: "Start Time", value: formatDate(localWorkout.detailedWorkout?.start_date ?? Date()))
+                if let elevationGain = localWorkout.detailedWorkout?.total_elevation_gain {
+                    DetailRow(title: "Elevation Gain", value: String(format: "%.1f ft", elevationGain * 3.28084))
+                }
+                if let elevLow = localWorkout.detailedWorkout?.elevation_low, !elevLow.isEmpty {
+                    DetailRow(title: "Elevation Low", value: String(format: "%.1f ft", (Double(elevLow) ?? 0) * 3.28084))
+                }
+                if let elevHigh = localWorkout.detailedWorkout?.elevation_high, !elevHigh.isEmpty {
+                    DetailRow(title: "Elevation High", value: String(format: "%.1f ft", (Double(elevHigh) ?? 0) * 3.28084))
                 }
             }
-            .padding()
-            .foregroundColor(.white)
-            .onAppear {
-                print("WorkoutDetailView appeared for workout ID: \(localWorkout.id)")
-                print("Detailed workout: \(String(describing: localWorkout.detailedWorkout))")
-            }
-        }
-        
-        private func formatDuration(_ seconds: Int) -> String {
-            let hours = seconds / 3600
-            let minutes = (seconds % 3600) / 60
-            let remainingSeconds = seconds % 60
-            return String(format: "%02d:%02d:%02d", hours, minutes, remainingSeconds)
-        }
-        
-        private func formatDate(_ date: Date) -> String {
-            let formatter = DateFormatter()
-            formatter.dateStyle = .medium
-            formatter.timeStyle = .short
-            return formatter.string(from: date)
         }
     }
+    .padding()
+    .foregroundColor(.white)
+    .background(
+        RoundedRectangle(cornerRadius: 12)
+            .fill(Color.green.opacity(0.2))
+            .shadow(color: Color.black.opacity(0.2), radius: 10, x: 0, y: 5)
+    )
+    .onAppear {
+        print("WorkoutDetailView appeared for workout ID: \(localWorkout.id)")
+        print("Detailed workout: \(String(describing: localWorkout.detailedWorkout))")
+    }
+}
+
+private func formatDuration(_ seconds: Int) -> String {
+    let hours = seconds / 3600
+    let minutes = (seconds % 3600) / 60
+    let remainingSeconds = seconds % 60
+    return String(format: "%02d:%02d:%02d", hours, minutes, remainingSeconds)
+}
+
+private func formatDate(_ date: Date) -> String {
+    let formatter = DateFormatter()
+    formatter.dateStyle = .medium
+    formatter.timeStyle = .short
+    return formatter.string(from: date)
+}
+}
 
    struct DetailRow: View {
        let title: String
