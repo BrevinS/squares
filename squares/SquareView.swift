@@ -8,6 +8,7 @@ struct SquareView: View {
     let totalItems: Int
     let isExpanded: Bool
     let workout: LocalWorkout?
+    let animationDelay: Double
     let onTap: () -> Void
     
     private func getColorWithIntensity(baseColor: Color) -> Color {
@@ -27,12 +28,9 @@ struct SquareView: View {
     }
     
     var body: some View {
-        let baseColor = WorkoutColors.getColor(for: workout?.type)
-        let colorWithIntensity = getColorWithIntensity(baseColor: baseColor)
-        
         Button(action: onTap) {
             RoundedRectangle(cornerRadius: isExpanded ? 0 : 8)
-                .fill(colorWithIntensity)
+                .fill(getColorWithIntensity(baseColor: WorkoutColors.getColor(for: workout?.type)))
                 .overlay(
                     RoundedRectangle(cornerRadius: isExpanded ? 0 : 8)
                         .stroke(Color(red: 14/255, green: 17/255, blue: 22/255), lineWidth: isExpanded ? 0 : 5)
@@ -40,7 +38,7 @@ struct SquareView: View {
                 .frame(width: isExpanded ? 41 : 40, height: isExpanded ? 41 : 40)
                 .opacity(blocksDropped && isVisible ? 1 : 0)
                 .animation(
-                    isVisible ? Animation.easeIn(duration: 0.15).delay(Double(totalItems - index) * 0.01) : .none,
+                    isVisible ? Animation.easeIn(duration: 0.15).delay(animationDelay) : .none,
                     value: blocksDropped
                 )
                 .animation(.easeInOut(duration: 0.2), value: isExpanded)

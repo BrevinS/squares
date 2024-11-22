@@ -27,6 +27,9 @@ struct SquaresView: View {
     @State private var cardOpacity: Double = 1
     @State private var selectedSquarePosition: CGPoint = .zero
     
+    @State private var selectedSquareIndex: Int?
+    @State private var animationOrigin: Int?
+    
     // Strava refresh
     @State private var isRefreshing = false
     @State private var selectedWorkoutDetails: WorkoutDetails?
@@ -160,7 +163,8 @@ struct SquaresView: View {
                                     LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 1), count: columns), spacing: 1) {
                                         ForEach((0..<totalItems).reversed(), id: \.self) { index in
                                             GeometryReader { geo in
-                                                let isVisible = geo.frame(in: .global).minY < UIScreen.main.bounds.height + 160 && geo.frame(in: .global).maxY > -160
+                                                let isVisible = geo.frame(in: .global).minY < UIScreen.main.bounds.height + 160 &&
+                                                              geo.frame(in: .global).maxY > -160
                                                 
                                                 SquareView(
                                                     date: calculateDate(for: index),
@@ -170,6 +174,7 @@ struct SquaresView: View {
                                                     totalItems: totalItems,
                                                     isExpanded: expandedSquares.contains(index) || isFullyExpanded,
                                                     workout: workoutFor(date: calculateDate(for: index)),
+                                                    animationDelay: calculateAnimationDelay(for: index),
                                                     onTap: { onSquareTap(date: calculateDate(for: index), index: index) }
                                                 )
                                             }
@@ -213,6 +218,27 @@ struct SquaresView: View {
                 resetView()
             }
         }
+    }
+    
+    private func calculateAnimationDelay(for index: Int) -> Double {
+        guard let origin = animationOrigin else { return 0 }
+        
+        let originRow = origin / columns
+        let originCol = origin % columns
+        let currentRow = index / columns
+        let currentCol = index % columns
+        
+        // Calculate Manhattan distance from origin square
+        let distance = abs(currentRow - originRow) + abs(currentCol - originCol)
+        
+        // Return delay based on distance
+        return Double(distance) * 0.02 // Adjust multiplier to control animation speed
+    }
+
+    private func calculateSquarePosition(for index: Int) -> (row: Int, col: Int) {
+        let row = index / columns
+        let col = index % columns
+        return (row, col)
     }
     
     private func workoutFor(date: Date) -> LocalWorkout? {
@@ -361,34 +387,39 @@ struct SquaresView: View {
             cardOpacity = 0
         }
         
-        // After the animation completes, reset the view state
+        // After the card flip, start the squares animation
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
             withAnimation(.easeInOut(duration: 0.3)) {
                 blocksDropped = false
-                selectedDate = nil
-                expandedSquares.removeAll()
                 isExpanding = false
                 isFullyExpanded = false
-                expandedRectangleTopIndex = 0
-                shouldScrollToTop = false
-                selectedWorkoutDetails = nil
-                
-                // Reset the animation properties for next time
-                cardRotation = 0
-                cardScale = 1
-                cardOpacity = 1
+                expandedSquares.removeAll()
             }
+            
+            // Set the animation origin to the selected square
+            animationOrigin = selectedSquareIndex
             
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
                 withAnimation(.easeInOut(duration: 0.3)) {
                     blocksDropped = true
                 }
+                
+                // Reset remaining state
+                selectedDate = nil
+                expandedRectangleTopIndex = 0
+                selectedWorkoutDetails = nil
+                cardRotation = 0
+                cardScale = 1
+                cardOpacity = 1
             }
         }
     }
     
     private func onSquareTap(date: Date, index: Int) {
         selectedDate = date
+        selectedSquareIndex = index
+        animationOrigin = index
+        
         if let workout = workoutFor(date: date) {
             selectedLocalWorkout = workout
             if workout.detailedWorkout == nil {
