@@ -94,13 +94,79 @@ struct AnimatedScaleView: View {
     }
 }
 
+struct CalorieEntryRow: View {
+    let entry: CalorieEntry
+    let onDelete: () -> Void
+    
+    var body: some View {
+        HStack {
+            Text(entry.name)
+                .foregroundColor(.white)
+            Spacer()
+            Text("\(entry.calories) cal")
+                .foregroundColor(.orange)
+            Button(action: onDelete) {
+                Image(systemName: "xmark.circle.fill")
+                    .foregroundColor(.red.opacity(0.7))
+                    .font(.system(size: 20))
+            }
+            .buttonStyle(PlainButtonStyle())
+            .transition(.opacity)
+        }
+        .padding(.vertical, 8)
+        .padding(.horizontal, 12)
+        .background(Color.white.opacity(0.05))
+        .cornerRadius(8)
+    }
+}
+
+struct MetabolismSettingsView: View {
+    @Binding var baseMetabolism: Int
+    @Environment(\.dismiss) private var dismiss
+    @State private var tempMetabolism: String
+    
+    init(baseMetabolism: Binding<Int>) {
+        self._baseMetabolism = baseMetabolism
+        self._tempMetabolism = State(initialValue: String(baseMetabolism.wrappedValue))
+    }
+    
+    var body: some View {
+        NavigationView {
+            Form {
+                Section(header: Text("Base Metabolism")) {
+                    TextField("Daily Calorie Need", text: $tempMetabolism)
+                        .keyboardType(.numberPad)
+                    
+                    Text("This is your basic metabolic rate - the number of calories your body needs daily to maintain current weight.")
+                        .font(.caption)
+                        .foregroundColor(.gray)
+                }
+            }
+            .navigationTitle("Metabolism Settings")
+            .navigationBarItems(
+                leading: Button("Cancel") {
+                    dismiss()
+                },
+                trailing: Button("Save") {
+                    if let newValue = Int(tempMetabolism) {
+                        baseMetabolism = newValue
+                    }
+                    dismiss()
+                }
+                .disabled(Int(tempMetabolism) == nil)
+            )
+        }
+    }
+}
+
 struct CalorieModuleView: View {
     @StateObject private var calorieService: CalorieService
     @State private var newEntryName: String = ""
     @State private var newEntryCalories: String = ""
     @State private var isAddingEntry: Bool = false
-    @State private var baseMetabolism: Int = 2000 // Default value
+    @State private var baseMetabolism: Int = 2000
     @State private var caloriesBurned: Int = 0
+    @State private var isShowingSettings: Bool = false
     
     init() {
         _calorieService = StateObject(wrappedValue: CalorieService(context: PersistenceController.shared.container.viewContext))
@@ -126,7 +192,6 @@ struct CalorieModuleView: View {
                 
             Spacer()
             
-            // Display the actual difference
             Text("\(abs(calorieService.totalCaloriesConsumed - targetCalories)) cal")
                 .foregroundColor(isCalorieSurplus ? .red : .green)
                 .font(.system(size: 16, weight: .medium))
@@ -147,6 +212,15 @@ struct CalorieModuleView: View {
                     .foregroundColor(.orange)
                 
                 Spacer()
+                
+                // Settings button
+                Button(action: {
+                    isShowingSettings = true
+                }) {
+                    Image(systemName: "gear")
+                        .font(.system(size: 20))
+                        .foregroundColor(.orange)
+                }
                 
                 Button(action: {
                     isAddingEntry = true
@@ -181,17 +255,44 @@ struct CalorieModuleView: View {
                     Text("Target")
                         .font(.caption)
                         .foregroundColor(.gray)
-                    Text("\(targetCalories)")
-                        .font(.title2)
-                        .foregroundColor(.white)
+                    HStack(spacing: 4) {
+                        Text("\(targetCalories)")
+                            .font(.title2)
+                            .foregroundColor(.white)
+                        
+                        // Small metabolism indicator
+                        Text("(\(baseMetabolism))")
+                            .font(.caption)
+                            .foregroundColor(.gray)
+                    }
                 }
             }
             
-            // New Status View with animation
             statusView
                 .animation(.easeInOut, value: isCalorieSurplus)
             
-            if !calorieService.calorieEntries.isEmpty {
+            HStack {
+                Text("Today's Food Log")
+                    .font(.headline)
+                    .foregroundColor(.gray)
+                
+                Spacer()
+                
+                if !calorieService.calorieEntries.isEmpty {
+                    Text("\(calorieService.calorieEntries.count) items")
+                        .font(.subheadline)
+                        .foregroundColor(.gray)
+                }
+            }
+            .padding(.top, 8)
+            
+            if calorieService.calorieEntries.isEmpty {
+                Text("No meals logged today")
+                    .font(.subheadline)
+                    .foregroundColor(.gray)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.vertical, 20)
+            } else {
                 ScrollView {
                     VStack(spacing: 8) {
                         ForEach(calorieService.calorieEntries) { entry in
@@ -237,32 +338,10 @@ struct CalorieModuleView: View {
                 )
             }
         }
+        .sheet(isPresented: $isShowingSettings) {
+            MetabolismSettingsView(baseMetabolism: $baseMetabolism)
+        }
     }
 }
 
-struct CalorieEntryRow: View {
-    let entry: CalorieEntry
-    let onDelete: () -> Void
-    
-    var body: some View {
-        HStack {
-            Text(entry.name)
-                .foregroundColor(.white)
-            Spacer()
-            Text("\(entry.calories) cal")
-                .foregroundColor(.orange)
-            Button(action: onDelete) {
-                Image(systemName: "xmark.circle.fill")
-                    .foregroundColor(.red.opacity(0.7))
-                    .font(.system(size: 20))
-            }
-            .buttonStyle(PlainButtonStyle())
-            .transition(.opacity)
-        }
-        .padding(.vertical, 8)
-        .padding(.horizontal, 12)
-        .background(Color.white.opacity(0.05))
-        .cornerRadius(8)
-    }
-}
 
