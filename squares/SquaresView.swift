@@ -2,9 +2,9 @@ import SwiftUI
 import CoreData
 
 struct SquaresView: View {
-    let rows = 52
+    let rows = 26
     let columns = 7
-    let totalItems = 364
+    let totalItems = 182
     @State private var daysOfWeek = ["S", "M", "T", "W", "T", "F", "S"]
     let expandedHeight = 19
     
@@ -74,6 +74,7 @@ struct SquaresView: View {
         ScrollViewReader { scrollProxy in
             ScrollView {
                 VStack(spacing: 0) {
+                    // Header content remains the same
                     HStack {
                         settingsButton
                         Spacer()
@@ -89,10 +90,8 @@ struct SquaresView: View {
                     .background(Color(red: 14/255, green: 17/255, blue: 22/255))
                     
                     SubjectFilterBar(selectedTypes: $selectedTypes)
-
                     .padding(.bottom, 10)
                     
-                    // Existing content
                     Color.clear.frame(height: 1).id("top")
                     
                     VStack {
@@ -102,9 +101,10 @@ struct SquaresView: View {
                                 .padding(-35)
                             
                             VStack(spacing: 0) {
-                                // Update the HStack in the header section to include the back button
+                                // Days of week header
                                 HStack(spacing: 1) {
                                     if isFullyExpanded, let date = selectedDate {
+                                        // Expanded view header
                                         HStack {
                                             Button(action: resetView) {
                                                 Image(systemName: "chevron.left")
@@ -135,6 +135,7 @@ struct SquaresView: View {
                                 .padding(.bottom, 5)
                                 
                                 if isFullyExpanded {
+                                    // Expanded workout detail view remains the same
                                     ZStack {
                                         RoundedRectangle(cornerRadius: 8)
                                             .fill(Color.green)
@@ -158,8 +159,8 @@ struct SquaresView: View {
                                     .animation(.easeInOut(duration: 0.5), value: cardRotation)
                                     .animation(.easeInOut(duration: 0.5), value: cardScale)
                                     .animation(.easeInOut(duration: 0.5), value: cardOpacity)
-                                    
                                 } else {
+                                    // Grid view with 182 squares
                                     LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 1), count: columns), spacing: 1) {
                                         ForEach((0..<totalItems).reversed(), id: \.self) { index in
                                             GeometryReader { geo in
@@ -182,12 +183,12 @@ struct SquaresView: View {
                                         }
                                     }
                                     .padding(.horizontal, 10)
-                                    .padding(.bottom, 200) // Add extra padding at the bottom
+                                    .padding(.bottom, 200)
                                 }
                             }
                         }
                         .padding(45)
-                        .background(Color(red: 14 / 255, green: 17 / 255, blue: 22 / 255))
+                        .background(Color(red: 14/255, green: 17/255, blue: 22/255))
                     }
                 }
                 .id(refreshTrigger)
@@ -196,7 +197,6 @@ struct SquaresView: View {
                     alignDaysOfWeek()
                     printWorkouts()
                 }
-                
             }
             .background(Color(red: 14 / 255, green: 17 / 255, blue: 22 / 255))
             .alert(isPresented: $showAlert) {
