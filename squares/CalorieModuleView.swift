@@ -110,6 +110,35 @@ struct CalorieModuleView: View {
         baseMetabolism + caloriesBurned
     }
     
+    private var isCalorieSurplus: Bool {
+        calorieService.totalCaloriesConsumed > targetCalories
+    }
+    
+    private var statusView: some View {
+        HStack {
+            Image(systemName: isCalorieSurplus ? "plus.forwardslash.minus" : "minus.forwardslash.plus")
+                .foregroundColor(isCalorieSurplus ? .red : .green)
+                .font(.system(size: 20))
+            
+            Text(isCalorieSurplus ? "Surplus" : "Deficit")
+                .foregroundColor(isCalorieSurplus ? .red : .green)
+                .font(.system(size: 16, weight: .medium))
+                
+            Spacer()
+            
+            // Display the actual difference
+            Text("\(abs(calorieService.totalCaloriesConsumed - targetCalories)) cal")
+                .foregroundColor(isCalorieSurplus ? .red : .green)
+                .font(.system(size: 16, weight: .medium))
+        }
+        .padding(.vertical, 8)
+        .padding(.horizontal, 12)
+        .background(
+            RoundedRectangle(cornerRadius: 8)
+                .fill(Color.white.opacity(0.05))
+        )
+    }
+    
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
@@ -128,7 +157,6 @@ struct CalorieModuleView: View {
                 }
             }
             
-            // Center the scale
             VStack {
                 AnimatedScaleView(
                     consumedCalories: calorieService.totalCaloriesConsumed,
@@ -158,6 +186,10 @@ struct CalorieModuleView: View {
                         .foregroundColor(.white)
                 }
             }
+            
+            // New Status View with animation
+            statusView
+                .animation(.easeInOut, value: isCalorieSurplus)
             
             if !calorieService.calorieEntries.isEmpty {
                 ScrollView {
