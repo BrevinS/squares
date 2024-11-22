@@ -189,7 +189,7 @@ struct WeightModuleView: View {
                     y: .value("Weight", measurement.wrappedWeight)
                 )
                 .foregroundStyle(.orange.gradient)
-                .interpolationMethod(.catmullRom)
+                .interpolationMethod(.linear) // Changed from .catmullRom to .linear
             }
             
             if let measurement = selectedMeasurement {

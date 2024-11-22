@@ -64,7 +64,7 @@ class WeatherService: ObservableObject {
     @Published var isLoading = true
     @Published var error: Error?
     
-    private let apiKey = "-------------------------------"
+    private let apiKey = "------------------------------"
     private let locationManager = CLLocationManager()
     
     init() {
