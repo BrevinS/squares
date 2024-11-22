@@ -93,12 +93,26 @@ struct SquaresView: View {
                                 .padding(-35)
                             
                             VStack(spacing: 0) {
+                                // Update the HStack in the header section to include the back button
                                 HStack(spacing: 1) {
                                     if isFullyExpanded, let date = selectedDate {
-                                        Text(formattedDateHeader(date))
-                                            .font(.caption)
-                                            .foregroundColor(.white)
-                                            .frame(maxWidth: .infinity, alignment: .center)
+                                        HStack {
+                                            Button(action: resetView) {
+                                                Image(systemName: "chevron.left")
+                                                    .font(.system(size: 20))
+                                                    .foregroundColor(.white)
+                                            }
+                                            .padding(.leading, 8)
+                                            
+                                            Spacer()
+                                            
+                                            Text(formattedDateHeader(date))
+                                                .font(.caption)
+                                                .foregroundColor(.white)
+                                            
+                                            Spacer()
+                                        }
+                                        .frame(maxWidth: .infinity)
                                     } else {
                                         ForEach(0..<columns, id: \.self) { index in
                                             Text(daysOfWeek[index])
