@@ -33,12 +33,12 @@ class CalorieService: ObservableObject {
 struct AnimatedScaleView: View {
     let consumedCalories: Int
     let targetCalories: Int
-    @State private var isAnimating = false
     
     private var scaleAngle: Double {
         let difference = Double(consumedCalories - targetCalories)
-        // Limit the tilt to ±15 degrees for a more subtle effect
-        return min(max(-15, difference / 200), 15)
+        // Invert the angle so higher weight tilts down
+        // Limit the tilt to ±15 degrees for a subtle effect
+        return min(max(-15, -difference / 200), 15)  // Note the negative difference
     }
     
     var body: some View {
@@ -63,10 +63,10 @@ struct AnimatedScaleView: View {
                         .fill(Color.orange)
                         .frame(width: 200, height: 4)
                     
-                    // Left plate
+                    // Left plate (Consumed)
                     ZStack {
                         Circle()
-                            .stroke(Color.orange, lineWidth: 2)
+                            .fill(Color.orange)
                             .frame(width: 50, height: 50)
                         Text("\(consumedCalories)")
                             .font(.system(size: 14, weight: .bold))
@@ -74,10 +74,10 @@ struct AnimatedScaleView: View {
                     }
                     .offset(x: -90)
                     
-                    // Right plate
+                    // Right plate (Target)
                     ZStack {
                         Circle()
-                            .stroke(Color.orange, lineWidth: 2)
+                            .fill(Color.orange)
                             .frame(width: 50, height: 50)
                         Text("\(targetCalories)")
                             .font(.system(size: 14, weight: .bold))
@@ -89,33 +89,8 @@ struct AnimatedScaleView: View {
                 .animation(.spring(response: 0.6, dampingFraction: 0.7, blendDuration: 0.6), value: scaleAngle)
             }
             .frame(height: 120)
+            .frame(maxWidth: .infinity)
         }
-    }
-}
-
-struct CalorieEntryRow: View {
-    let entry: CalorieEntry
-    let onDelete: () -> Void
-    
-    var body: some View {
-        HStack {
-            Text(entry.name)
-                .foregroundColor(.white)
-            Spacer()
-            Text("\(entry.calories) cal")
-                .foregroundColor(.orange)
-            Button(action: onDelete) {
-                Image(systemName: "xmark.circle.fill")
-                    .foregroundColor(.red.opacity(0.7))
-                    .font(.system(size: 20))
-            }
-            .buttonStyle(PlainButtonStyle())
-            .transition(.opacity)
-        }
-        .padding(.vertical, 8)
-        .padding(.horizontal, 12)
-        .background(Color.white.opacity(0.05))
-        .cornerRadius(8)
     }
 }
 
@@ -153,10 +128,14 @@ struct CalorieModuleView: View {
                 }
             }
             
-            AnimatedScaleView(
-                consumedCalories: calorieService.totalCaloriesConsumed,
-                targetCalories: targetCalories
-            )
+            // Center the scale
+            VStack {
+                AnimatedScaleView(
+                    consumedCalories: calorieService.totalCaloriesConsumed,
+                    targetCalories: targetCalories
+                )
+            }
+            .frame(maxWidth: .infinity)
             
             HStack {
                 VStack(alignment: .leading) {
@@ -228,3 +207,30 @@ struct CalorieModuleView: View {
         }
     }
 }
+
+struct CalorieEntryRow: View {
+    let entry: CalorieEntry
+    let onDelete: () -> Void
+    
+    var body: some View {
+        HStack {
+            Text(entry.name)
+                .foregroundColor(.white)
+            Spacer()
+            Text("\(entry.calories) cal")
+                .foregroundColor(.orange)
+            Button(action: onDelete) {
+                Image(systemName: "xmark.circle.fill")
+                    .foregroundColor(.red.opacity(0.7))
+                    .font(.system(size: 20))
+            }
+            .buttonStyle(PlainButtonStyle())
+            .transition(.opacity)
+        }
+        .padding(.vertical, 8)
+        .padding(.horizontal, 12)
+        .background(Color.white.opacity(0.05))
+        .cornerRadius(8)
+    }
+}
+
