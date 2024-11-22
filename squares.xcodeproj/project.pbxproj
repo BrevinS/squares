@@ -16,6 +16,7 @@
 		1E49FFC82C93846100BB140C /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 1E49FFC72C93846100BB140C /* Assets.xcassets */; };
 		1E49FFCB2C93846100BB140C /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 1E49FFCA2C93846100BB140C /* Preview Assets.xcassets */; };
 		1E5B9E142CAA4CF600B60AD5 /* DayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E5B9E132CAA4CF600B60AD5 /* DayView.swift */; };
+		1E85B9C82CF026510090E507 /* CalorieModuleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E85B9C72CF026510090E507 /* CalorieModuleView.swift */; };
 		1E8B3FEA2C93964800A9BF3F /* SquaresView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E8B3FE92C93964800A9BF3F /* SquaresView.swift */; };
 		1E8D61162CB6080E007BA51C /* MetalGraphRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E8D61152CB6080E007BA51C /* MetalGraphRenderer.swift */; };
 		1E8D61192CB60A96007BA51C /* Metal.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1E8D61182CB60A96007BA51C /* Metal.framework */; };
@@ -48,6 +49,7 @@
 		1E49FFCA2C93846100BB140C /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
 		1E5B9E122CA9834C00B60AD5 /* Info.plist */ = {isa = PBXFileReference; explicitFileType = text.xml; path = Info.plist; sourceTree = "<group>"; };
 		1E5B9E132CAA4CF600B60AD5 /* DayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayView.swift; sourceTree = "<group>"; };
+		1E85B9C72CF026510090E507 /* CalorieModuleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalorieModuleView.swift; sourceTree = "<group>"; };
 		1E8B3FE92C93964800A9BF3F /* SquaresView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SquaresView.swift; sourceTree = "<group>"; };
 		1E8D61152CB6080E007BA51C /* MetalGraphRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetalGraphRenderer.swift; sourceTree = "<group>"; };
 		1E8D61182CB60A96007BA51C /* Metal.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Metal.framework; path = System/Library/Frameworks/Metal.framework; sourceTree = SDKROOT; };
@@ -127,6 +129,7 @@
 				1E9348B02CD2CF63006E834B /* WeightService.swift */,
 				1E9348B22CD2CF83006E834B /* WeightMeasurement+Helper.swift */,
 				1E9348B42CD2CFAF006E834B /* WeightModuleView.swift */,
+				1E85B9C72CF026510090E507 /* CalorieModuleView.swift */,
 			);
 			path = squares;
 			sourceTree = "<group>";
@@ -236,6 +239,7 @@
 				1EEAE0F62C948E7300497F8F /* AddActivity.swift in Sources */,
 				1EB4443B2CC7246400DA5DE2 /* ChipTagView.swift in Sources */,
 				1E9348B32CD2CF83006E834B /* WeightMeasurement+Helper.swift in Sources */,
+				1E85B9C82CF026510090E507 /* CalorieModuleView.swift in Sources */,
 				1E1711792CB4D08700CB574D /* WorkoutDetails.swift in Sources */,
 				1EEAE1022C94C16300497F8F /* AddSubjectView.swift in Sources */,
 				1E1711772CB4D04700CB574D /* ShakeGesture.swift in Sources */,

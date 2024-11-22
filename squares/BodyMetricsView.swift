@@ -12,6 +12,9 @@ struct BodyMetricsView: View {
                 WeightModuleView()
                     .padding(.horizontal)
                 
+                CalorieModuleView()
+                    .padding(.horizontal)
+                
                 TemperatureModuleView()
                     .padding(.horizontal)
                 
