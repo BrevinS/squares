@@ -21,60 +21,101 @@ class CalorieService: ObservableObject {
         calorieEntries.append(newEntry)
     }
     
+    func deleteEntry(_ entry: CalorieEntry) {
+        calorieEntries.removeAll { $0.id == entry.id }
+    }
+    
     var totalCaloriesConsumed: Int {
         calorieEntries.reduce(0) { $0 + $1.calories }
     }
 }
 
-struct CalorieScaleView: View {
+struct AnimatedScaleView: View {
     let consumedCalories: Int
     let targetCalories: Int
+    @State private var isAnimating = false
     
     private var scaleAngle: Double {
         let difference = Double(consumedCalories - targetCalories)
-        // Limit the tilt to ±30 degrees
-        return min(max(-30, difference / 100), 30)
+        // Limit the tilt to ±15 degrees for a more subtle effect
+        return min(max(-15, difference / 200), 15)
     }
     
     var body: some View {
         VStack {
-            // Scale beam
             ZStack {
-                // Fulcrum
-                Triangle()
-                    .fill(Color.gray)
-                    .frame(width: 20, height: 20)
+                // Base stand
+                RoundedRectangle(cornerRadius: 4)
+                    .fill(Color.gray.opacity(0.3))
+                    .frame(width: 40, height: 8)
+                    .offset(y: 50)
                 
-                // Beam
-                Rectangle()
-                    .fill(Color.orange)
-                    .frame(width: 200, height: 4)
-                    .rotationEffect(.degrees(scaleAngle))
+                // Center pole
+                RoundedRectangle(cornerRadius: 2)
+                    .fill(Color.gray.opacity(0.5))
+                    .frame(width: 4, height: 60)
+                    .offset(y: 20)
                 
-                // Left weight (consumed calories)
-                Text("\(consumedCalories)")
-                    .font(.caption)
-                    .foregroundColor(.white)
-                    .offset(x: -90, y: -sin(Double(scaleAngle) * .pi / 180) * 50)
-                
-                // Right weight (target calories)
-                Text("\(targetCalories)")
-                    .font(.caption)
-                    .foregroundColor(.white)
-                    .offset(x: 90, y: sin(Double(scaleAngle) * .pi / 180) * 50)
+                // Scale beam
+                ZStack {
+                    // Main beam
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(Color.orange)
+                        .frame(width: 200, height: 4)
+                    
+                    // Left plate
+                    ZStack {
+                        Circle()
+                            .stroke(Color.orange, lineWidth: 2)
+                            .frame(width: 50, height: 50)
+                        Text("\(consumedCalories)")
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundColor(.white)
+                    }
+                    .offset(x: -90)
+                    
+                    // Right plate
+                    ZStack {
+                        Circle()
+                            .stroke(Color.orange, lineWidth: 2)
+                            .frame(width: 50, height: 50)
+                        Text("\(targetCalories)")
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundColor(.white)
+                    }
+                    .offset(x: 90)
+                }
+                .rotationEffect(.degrees(scaleAngle))
+                .animation(.spring(response: 0.6, dampingFraction: 0.7, blendDuration: 0.6), value: scaleAngle)
             }
+            .frame(height: 120)
         }
     }
 }
 
-struct Triangle: Shape {
-    func path(in rect: CGRect) -> Path {
-        var path = Path()
-        path.move(to: CGPoint(x: rect.midX, y: rect.minY))
-        path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
-        path.addLine(to: CGPoint(x: rect.minX, y: rect.maxY))
-        path.closeSubpath()
-        return path
+struct CalorieEntryRow: View {
+    let entry: CalorieEntry
+    let onDelete: () -> Void
+    
+    var body: some View {
+        HStack {
+            Text(entry.name)
+                .foregroundColor(.white)
+            Spacer()
+            Text("\(entry.calories) cal")
+                .foregroundColor(.orange)
+            Button(action: onDelete) {
+                Image(systemName: "xmark.circle.fill")
+                    .foregroundColor(.red.opacity(0.7))
+                    .font(.system(size: 20))
+            }
+            .buttonStyle(PlainButtonStyle())
+            .transition(.opacity)
+        }
+        .padding(.vertical, 8)
+        .padding(.horizontal, 12)
+        .background(Color.white.opacity(0.05))
+        .cornerRadius(8)
     }
 }
 
@@ -107,15 +148,15 @@ struct CalorieModuleView: View {
                     isAddingEntry = true
                 }) {
                     Image(systemName: "plus.circle.fill")
+                        .font(.system(size: 24))
                         .foregroundColor(.orange)
                 }
             }
             
-            CalorieScaleView(
+            AnimatedScaleView(
                 consumedCalories: calorieService.totalCaloriesConsumed,
                 targetCalories: targetCalories
             )
-            .frame(height: 100)
             
             HStack {
                 VStack(alignment: .leading) {
@@ -141,20 +182,17 @@ struct CalorieModuleView: View {
             
             if !calorieService.calorieEntries.isEmpty {
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 8) {
+                    VStack(spacing: 8) {
                         ForEach(calorieService.calorieEntries) { entry in
-                            HStack {
-                                Text(entry.name)
-                                    .foregroundColor(.white)
-                                Spacer()
-                                Text("\(entry.calories) cal")
-                                    .foregroundColor(.orange)
+                            CalorieEntryRow(entry: entry) {
+                                withAnimation {
+                                    calorieService.deleteEntry(entry)
+                                }
                             }
-                            .padding(.vertical, 4)
                         }
                     }
                 }
-                .frame(maxHeight: 150)
+                .frame(maxHeight: 200)
             }
         }
         .padding()
@@ -163,9 +201,11 @@ struct CalorieModuleView: View {
         .sheet(isPresented: $isAddingEntry) {
             NavigationView {
                 Form {
-                    TextField("Entry Name", text: $newEntryName)
-                    TextField("Calories", text: $newEntryCalories)
-                        .keyboardType(.numberPad)
+                    Section(header: Text("New Entry")) {
+                        TextField("Meal or Snack Name", text: $newEntryName)
+                        TextField("Calories", text: $newEntryCalories)
+                            .keyboardType(.numberPad)
+                    }
                 }
                 .navigationTitle("Add Calorie Entry")
                 .navigationBarItems(
@@ -174,7 +214,9 @@ struct CalorieModuleView: View {
                     },
                     trailing: Button("Add") {
                         if let calories = Int(newEntryCalories) {
-                            calorieService.addEntry(newEntryName, calories: calories)
+                            withAnimation {
+                                calorieService.addEntry(newEntryName, calories: calories)
+                            }
                             newEntryName = ""
                             newEntryCalories = ""
                             isAddingEntry = false
