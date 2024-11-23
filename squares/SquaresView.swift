@@ -8,6 +8,10 @@ struct SquaresView: View {
     @State private var daysOfWeek = ["S", "M", "T", "W", "T", "F", "S"]
     let expandedHeight = 19
     
+    let squareSize: CGFloat = 40
+    let squareSpacing: CGFloat = 1
+    let boundingBoxPadding: CGFloat = 20
+    
     @State private var blocksDropped = false
     @State private var selectedDate: Date? = nil
     @State private var showAlert = false
@@ -48,6 +52,14 @@ struct SquaresView: View {
         sortDescriptors: [NSSortDescriptor(keyPath: \LocalWorkout.date, ascending: true)]
     ) var workouts: FetchedResults<LocalWorkout>
     
+    private var gridWidth: CGFloat {
+        CGFloat(columns) * squareSize + CGFloat(columns - 1) * squareSpacing
+    }
+    
+    private var gridHeight: CGFloat {
+        CGFloat(rows) * squareSize + CGFloat(rows - 1) * squareSpacing
+    }
+    
     private func shouldShowWorkout(_ workout: LocalWorkout?) -> Bool {
         guard let workout = workout,
               let workoutType = workout.type else {
@@ -74,94 +86,112 @@ struct SquaresView: View {
         ScrollViewReader { scrollProxy in
             ScrollView {
                 VStack(spacing: 0) {
-                    // Header content remains the same
                     HStack {
-                        settingsButton
-                        Spacer()
-                        Text("Workout Graph")
-                            .font(.largeTitle)
-                            .foregroundColor(.orange)
-                        Spacer()
-                        addButton
-                    }
-                    .padding(.horizontal)
-                    .padding(.top, 1)
-                    .padding(.bottom, 10)
-                    .background(Color(red: 14/255, green: 17/255, blue: 22/255))
-                    
-                    SubjectFilterBar(selectedTypes: $selectedTypes)
-                    .padding(.bottom, 10)
-                    
-                    Color.clear.frame(height: 1).id("top")
-                    
-                    VStack {
-                        ZStack {
-                            RoundedRectangle(cornerRadius: 8)
-                                .stroke(Color(red: 62/255, green: 62/255, blue: 70/255), lineWidth: 2)
-                                .padding(-35)
-                            
-                            VStack(spacing: 0) {
-                                // Days of week header
-                                HStack(spacing: 1) {
-                                    if isFullyExpanded, let date = selectedDate {
-                                        // Expanded view header
-                                        HStack {
-                                            Button(action: resetView) {
-                                                Image(systemName: "chevron.left")
-                                                    .font(.system(size: 20))
-                                                    .foregroundColor(.white)
-                                            }
-                                            .padding(.leading, 8)
-                                            
-                                            Spacer()
-                                            
-                                            Text(formattedDateHeader(date))
-                                                .font(.caption)
-                                                .foregroundColor(.white)
-                                            
-                                            Spacer()
-                                        }
-                                        .frame(maxWidth: .infinity)
-                                    } else {
-                                        ForEach(0..<columns, id: \.self) { index in
-                                            Text(daysOfWeek[index])
-                                                .font(.caption)
-                                                .foregroundColor(Color(hue: 1.0, saturation: 0.002, brightness: 0.794))
-                                                .frame(width: 39, height: 20, alignment: .center)
-                                        }
-                                    }
-                                }
-                                .frame(height: 20)
-                                .padding(.bottom, 5)
-                                
-                                if isFullyExpanded {
-                                    // Expanded workout detail view remains the same
-                                    ZStack {
-                                        RoundedRectangle(cornerRadius: 8)
-                                            .fill(Color.green)
-                                            .frame(height: CGFloat(expandedHeight) * 40)
-                                        
-                                        if let localWorkout = selectedLocalWorkout {
-                                            WorkoutDetailView(localWorkout: localWorkout)
-                                                .padding()
-                                        } else {
-                                            ProgressView()
-                                                .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                                                .scaleEffect(2)
-                                        }
-                                    }
-                                    .rotation3DEffect(
-                                        .degrees(cardRotation),
-                                        axis: (x: 0, y: 1, z: 0)
+                            settingsButton
+                            Spacer()
+                            Text("Workout Graph")
+                                .font(.largeTitle)
+                                .foregroundColor(.orange)
+                            Spacer()
+                            addButton
+                        }
+                        .padding(.horizontal)
+                        .padding(.top, 1)
+                        .padding(.bottom, 10)
+                        .background(Color(red: 14/255, green: 17/255, blue: 22/255))
+                        
+                        SubjectFilterBar(selectedTypes: $selectedTypes)
+                        .padding(.bottom, 10)
+                        
+                        Color.clear.frame(height: 1).id("top")
+                        
+                        VStack {
+                            ZStack {
+                                // Bounding box
+                                RoundedRectangle(cornerRadius: 8)
+                                    .stroke(Color(red: 62/255, green: 62/255, blue: 70/255), lineWidth: 2)
+                                    .frame(
+                                        width: gridWidth + (boundingBoxPadding * 2),
+                                        height: gridHeight + (boundingBoxPadding * 2) + 30
                                     )
-                                    .scaleEffect(cardScale)
-                                    .opacity(cardOpacity)
-                                    .animation(.easeInOut(duration: 0.5), value: cardRotation)
-                                    .animation(.easeInOut(duration: 0.5), value: cardScale)
-                                    .animation(.easeInOut(duration: 0.5), value: cardOpacity)
-                                } else {
-                                    // Grid view with 182 squares
-                                    LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 1), count: columns), spacing: 1) {
+                                
+                                VStack(spacing: 0) {
+                                    // Updated days/back button header
+                                    HStack(spacing: squareSpacing) {
+                                        if isFullyExpanded {
+                                            // Back button aligned with day letters
+                                            HStack(spacing: 0) {
+                                                Button(action: resetView) {
+                                                    HStack(spacing: 4) {
+                                                        Image(systemName: "chevron.left")
+                                                            .font(.system(size: 14))
+                                                        Text("Back")
+                                                            .font(.caption)
+                                                    }
+                                                    .foregroundColor(.white)
+                                                    .padding(.vertical, 4)
+                                                    .padding(.horizontal, 8)
+                                                    .background(Color.gray.opacity(0.3))
+                                                    .cornerRadius(4)
+                                                }
+                                                
+                                                Spacer()
+                                                
+                                                if let date = selectedDate {
+                                                    Text(formattedDateHeader(date))
+                                                        .font(.caption)
+                                                        .foregroundColor(.white)
+                                                }
+                                                
+                                                Spacer()
+                                            }
+                                            .frame(width: gridWidth)
+                                        } else {
+                                            ForEach(0..<columns, id: \.self) { index in
+                                                Text(daysOfWeek[index])
+                                                    .font(.caption)
+                                                    .foregroundColor(Color(hue: 1.0, saturation: 0.002, brightness: 0.794))
+                                                    .frame(width: squareSize, height: 20)
+                                            }
+                                        }
+                                    }
+                                    .frame(height: 20)
+                                    .padding(.bottom, 10)
+                                    
+                                    // Rest of the content (expanded card or grid) remains the same
+                                    if isFullyExpanded {
+                                        ZStack {
+                                            RoundedRectangle(cornerRadius: 8)
+                                                .fill(Color.green)
+                                                .frame(
+                                                    width: gridWidth,
+                                                    height: gridHeight
+                                                )
+                                            
+                                            if let localWorkout = selectedLocalWorkout {
+                                                WorkoutDetailView(localWorkout: localWorkout)
+                                                    .frame(
+                                                        width: gridWidth,
+                                                        height: gridHeight
+                                                    )
+                                                    .clipped()
+                                            } else {
+                                                ProgressView()
+                                                    .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                                    .scaleEffect(2)
+                                            }
+                                        }
+                                        .rotation3DEffect(
+                                            .degrees(cardRotation),
+                                            axis: (x: 0, y: 1, z: 0)
+                                        )
+                                        .scaleEffect(cardScale)
+                                        .opacity(cardOpacity)
+                                    } else {
+                                    LazyVGrid(
+                                        columns: Array(repeating: GridItem(.fixed(squareSize), spacing: squareSpacing), count: columns),
+                                        spacing: squareSpacing
+                                    ) {
                                         ForEach((0..<totalItems).reversed(), id: \.self) { index in
                                             GeometryReader { geo in
                                                 let isVisible = geo.frame(in: .global).minY < UIScreen.main.bounds.height + 160 &&
@@ -179,15 +209,13 @@ struct SquaresView: View {
                                                     onTap: { onSquareTap(date: calculateDate(for: index), index: index) }
                                                 )
                                             }
-                                            .frame(width: 40, height: 40)
+                                            .frame(width: squareSize, height: squareSize)
                                         }
                                     }
-                                    .padding(.horizontal, 10)
-                                    .padding(.bottom, 200)
                                 }
                             }
+                            .padding(boundingBoxPadding)
                         }
-                        .padding(45)
                         .background(Color(red: 14/255, green: 17/255, blue: 22/255))
                     }
                 }
@@ -578,85 +606,78 @@ struct SquaresView: View {
     }
 }
     
-struct WorkoutDetailView: View {
-let localWorkout: LocalWorkout
-
-var body: some View {
-    ScrollView {
-        VStack(alignment: .leading, spacing: 10) {
-            Text(localWorkout.detailedWorkout?.name ?? "Unnamed Workout")
-                .font(.title)
-                .padding(.bottom)
+    struct WorkoutDetailView: View {
+        let localWorkout: LocalWorkout
             
-            Group {
-                DetailRow(title: "Type", value: localWorkout.detailedWorkout?.type ?? "Unknown")
-                DetailRow(title: "Duration", value: formatDuration(Int(localWorkout.detailedWorkout?.elapsed_time ?? 0)))
-                DetailRow(title: "Distance", value: String(format: "%.2f miles", localWorkout.distance / 1609.344))
-                if let avgSpeed = localWorkout.detailedWorkout?.average_speed {
-                    DetailRow(title: "Average Speed", value: String(format: "%.2f mph", avgSpeed * 2.23694))
+        var body: some View {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text(localWorkout.detailedWorkout?.name ?? "Unnamed Workout")
+                        .font(.title)
+                        .padding(.bottom, 8)
+                    
+                    Group {
+                        DetailRow(title: "Type", value: localWorkout.detailedWorkout?.type ?? "Unknown")
+                        DetailRow(title: "Duration", value: formatDuration(Int(localWorkout.detailedWorkout?.elapsed_time ?? 0)))
+                        DetailRow(title: "Distance", value: String(format: "%.2f miles", localWorkout.distance / 1609.344))
+                        if let avgSpeed = localWorkout.detailedWorkout?.average_speed {
+                            DetailRow(title: "Average Speed", value: String(format: "%.2f mph", avgSpeed * 2.23694))
+                        }
+                        if let avgHeartRate = localWorkout.detailedWorkout?.average_heartrate, avgHeartRate > 0 {
+                            DetailRow(title: "Average Heart Rate", value: String(format: "%.0f bpm", avgHeartRate))
+                        }
+                        if let maxHeartRate = localWorkout.detailedWorkout?.max_heartrate, maxHeartRate > 0 {
+                            DetailRow(title: "Max Heart Rate", value: "\(maxHeartRate) bpm")
+                        }
+                        DetailRow(title: "Start Time", value: formatDate(localWorkout.detailedWorkout?.start_date ?? Date()))
+                        if let elevationGain = localWorkout.detailedWorkout?.total_elevation_gain {
+                            DetailRow(title: "Elevation Gain", value: String(format: "%.1f ft", elevationGain * 3.28084))
+                        }
+                        if let elevLow = localWorkout.detailedWorkout?.elevation_low, !elevLow.isEmpty {
+                            DetailRow(title: "Elevation Low", value: String(format: "%.1f ft", (Double(elevLow) ?? 0) * 3.28084))
+                        }
+                        if let elevHigh = localWorkout.detailedWorkout?.elevation_high, !elevHigh.isEmpty {
+                            DetailRow(title: "Elevation High", value: String(format: "%.1f ft", (Double(elevHigh) ?? 0) * 3.28084))
+                        }
+                    }
                 }
-                if let avgHeartRate = localWorkout.detailedWorkout?.average_heartrate, avgHeartRate > 0 {
-                    DetailRow(title: "Average Heart Rate", value: String(format: "%.0f bpm", avgHeartRate))
-                }
-                if let maxHeartRate = localWorkout.detailedWorkout?.max_heartrate, maxHeartRate > 0 {
-                    DetailRow(title: "Max Heart Rate", value: "\(maxHeartRate) bpm")
-                }
-                DetailRow(title: "Start Time", value: formatDate(localWorkout.detailedWorkout?.start_date ?? Date()))
-                if let elevationGain = localWorkout.detailedWorkout?.total_elevation_gain {
-                    DetailRow(title: "Elevation Gain", value: String(format: "%.1f ft", elevationGain * 3.28084))
-                }
-                if let elevLow = localWorkout.detailedWorkout?.elevation_low, !elevLow.isEmpty {
-                    DetailRow(title: "Elevation Low", value: String(format: "%.1f ft", (Double(elevLow) ?? 0) * 3.28084))
-                }
-                if let elevHigh = localWorkout.detailedWorkout?.elevation_high, !elevHigh.isEmpty {
-                    DetailRow(title: "Elevation High", value: String(format: "%.1f ft", (Double(elevHigh) ?? 0) * 3.28084))
-                }
+                .padding()
             }
+            .foregroundColor(.white)
+        }
+
+
+        private func formatDuration(_ seconds: Int) -> String {
+            let hours = seconds / 3600
+            let minutes = (seconds % 3600) / 60
+            let remainingSeconds = seconds % 60
+            return String(format: "%02d:%02d:%02d", hours, minutes, remainingSeconds)
+        }
+
+        private func formatDate(_ date: Date) -> String {
+            let formatter = DateFormatter()
+            formatter.dateStyle = .medium
+            formatter.timeStyle = .short
+            return formatter.string(from: date)
         }
     }
-    .padding()
-    .foregroundColor(.white)
-    .background(
-        RoundedRectangle(cornerRadius: 12)
-            .fill(Color.green.opacity(0.2))
-            .shadow(color: Color.black.opacity(0.2), radius: 10, x: 0, y: 5)
-    )
-    .onAppear {
-        print("WorkoutDetailView appeared for workout ID: \(localWorkout.id)")
-        print("Detailed workout: \(String(describing: localWorkout.detailedWorkout))")
+
+    struct DetailRow: View {
+        let title: String
+        let value: String
+        
+        var body: some View {
+            HStack {
+                Text(title)
+                    .font(.headline)
+                    .foregroundColor(.white.opacity(0.8))
+                Spacer()
+                Text(value)
+                    .font(.body)
+            }
+            .padding(.vertical, 2)
+        }
     }
-}
-
-private func formatDuration(_ seconds: Int) -> String {
-    let hours = seconds / 3600
-    let minutes = (seconds % 3600) / 60
-    let remainingSeconds = seconds % 60
-    return String(format: "%02d:%02d:%02d", hours, minutes, remainingSeconds)
-}
-
-private func formatDate(_ date: Date) -> String {
-    let formatter = DateFormatter()
-    formatter.dateStyle = .medium
-    formatter.timeStyle = .short
-    return formatter.string(from: date)
-}
-}
-
-   struct DetailRow: View {
-       let title: String
-       let value: String
-       
-       var body: some View {
-           HStack {
-               Text(title)
-                   .font(.headline)
-               Spacer()
-               Text(value)
-                   .font(.body)
-           }
-           .padding(.vertical, 4)
-       }
-   }
 
 
     struct SquaresView_Previews: PreviewProvider {
