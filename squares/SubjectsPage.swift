@@ -131,43 +131,148 @@ struct SubjectsPage: View {
     }
 }
 
-struct HabitRowView: View {
+struct HabitDetailView: View {
     let habit: Habit
+    @Environment(\.managedObjectContext) private var viewContext
+    @Environment(\.dismiss) private var dismiss
+    @State private var showingAddEntry = false
+    @State private var noteText = ""
+    @State private var selectedDate = Date()
+    @State private var isCompleted = false
     
-    var body: some View {
-        HStack {
-            Circle()
-                .fill(Color(hex: habit.colorHex ?? "#808080") ?? .gray)
-                .frame(width: 12, height: 12)
-            
-            VStack(alignment: .leading) {
-                Text(habit.name ?? "Unnamed Habit")
-                    .foregroundColor(Color(hex: habit.colorHex ?? "#808080") ?? .gray)
-                
-                Text(getHabitTypeDescription())
-                    .font(.caption)
-                    .foregroundColor(.gray)
-            }
-            
-            Spacer()
-            
-            if habit.isDefaultHabit {
-                Image(systemName: "star.fill")
-                    .foregroundColor(.yellow)
-                    .font(.system(size: 12))
-            }
-        }
-        .contentShape(Rectangle())
+    // Fetch entries for this habit
+    @FetchRequest private var entries: FetchedResults<HabitEntry>
+    
+    init(habit: Habit) {
+        self.habit = habit
+        // Initialize the fetch request with a predicate for this habit
+        _entries = FetchRequest(
+            entity: HabitEntry.entity(),
+            sortDescriptors: [NSSortDescriptor(keyPath: \HabitEntry.date, ascending: false)],
+            predicate: NSPredicate(format: "habit == %@", habit)
+        )
     }
     
-    private func getHabitTypeDescription() -> String {
-        if habit.isBinary {
-            return "Done/Not Done"
-        } else if habit.hasNotes {
-            return "With Notes"
-        } else {
-            return "Basic Tracking"
+    var body: some View {
+        List {
+            Section {
+                HStack {
+                    Circle()
+                        .fill(Color(hex: habit.colorHex ?? "#808080") ?? .gray)
+                        .frame(width: 20, height: 20)
+                    
+                    VStack(alignment: .leading) {
+                        Text(habit.name ?? "Unnamed Habit")
+                            .font(.title2)
+                            .foregroundColor(Color(hex: habit.colorHex ?? "#808080") ?? .gray)
+                        Text(habit.isBinary ? "Done/Not Done" : "With Notes")
+                            .font(.caption)
+                            .foregroundColor(.gray)
+                    }
+                }
+            }
+            
+            Section("Add New Entry") {
+                DatePicker("Date", selection: $selectedDate, displayedComponents: [.date])
+                
+                if habit.isBinary {
+                    Toggle("Completed", isOn: $isCompleted)
+                } else if habit.hasNotes {
+                    TextEditor(text: $noteText)
+                        .frame(height: 100)
+                }
+                
+                Button(action: addEntry) {
+                    Text("Add Entry")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(Color(hex: habit.colorHex ?? "#808080") ?? .gray)
+            }
+            
+            Section("History") {
+                if entries.isEmpty {
+                    Text("No entries yet")
+                        .foregroundColor(.gray)
+                        .italic()
+                } else {
+                    ForEach(entries) { entry in
+                        EntryRowView(entry: entry)
+                    }
+                    .onDelete(perform: deleteEntries)
+                }
+            }
         }
+        .navigationBarTitleDisplayMode(.inline)
+    }
+    
+    private func addEntry() {
+        let newEntry = HabitEntry(context: viewContext)
+        newEntry.id = UUID()
+        newEntry.date = selectedDate
+        newEntry.habit = habit
+        
+        if habit.isBinary {
+            newEntry.completed = isCompleted
+        } else if habit.hasNotes {
+            newEntry.notes = noteText
+            newEntry.completed = !noteText.isEmpty
+        }
+        
+        do {
+            try viewContext.save()
+            // Reset input fields
+            noteText = ""
+            isCompleted = false
+            selectedDate = Date()
+        } catch {
+            print("Error saving entry: \(error)")
+        }
+    }
+    
+    private func deleteEntries(offsets: IndexSet) {
+        offsets.forEach { index in
+            viewContext.delete(entries[index])
+        }
+        
+        do {
+            try viewContext.save()
+        } catch {
+            print("Error deleting entries: \(error)")
+        }
+    }
+}
+
+struct EntryRowView: View {
+    let entry: HabitEntry
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Text(formatDate(entry.date ?? Date()))
+                    .font(.subheadline)
+                    .foregroundColor(.gray)
+                
+                Spacer()
+                
+                if entry.habit?.isBinary ?? false {
+                    Image(systemName: entry.completed ? "checkmark.circle.fill" : "circle")
+                        .foregroundColor(entry.completed ? .green : .gray)
+                }
+            }
+            
+            if let notes = entry.notes, !notes.isEmpty {
+                Text(notes)
+                    .font(.body)
+                    .padding(.top, 2)
+            }
+        }
+    }
+    
+    private func formatDate(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        return formatter.string(from: date)
     }
 }
 
@@ -208,6 +313,47 @@ extension Color {
             green: Double((rgb & 0x00FF00) >> 8) / 255.0,
             blue: Double(rgb & 0x0000FF) / 255.0
         )
+    }
+}
+
+struct HabitRowView: View {
+    let habit: Habit
+    
+    var body: some View {
+        NavigationLink(destination: HabitDetailView(habit: habit)) {
+            HStack {
+                Circle()
+                    .fill(Color(hex: habit.colorHex ?? "#808080") ?? .gray)
+                    .frame(width: 12, height: 12)
+                
+                VStack(alignment: .leading) {
+                    Text(habit.name ?? "Unnamed Habit")
+                        .foregroundColor(Color(hex: habit.colorHex ?? "#808080") ?? .gray)
+                    
+                    Text(getHabitTypeDescription())
+                        .font(.caption)
+                        .foregroundColor(.gray)
+                }
+                
+                Spacer()
+                
+                if habit.isDefaultHabit {
+                    Image(systemName: "star.fill")
+                        .foregroundColor(.yellow)
+                        .font(.system(size: 12))
+                }
+            }
+        }
+    }
+    
+    private func getHabitTypeDescription() -> String {
+        if habit.isBinary {
+            return "Done/Not Done"
+        } else if habit.hasNotes {
+            return "With Notes"
+        } else {
+            return "Basic Tracking"
+        }
     }
 }
 
