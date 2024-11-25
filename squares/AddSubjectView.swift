@@ -1,25 +1,97 @@
 import SwiftUI
 
-struct ColorCircle: View {
-    let color: Color
-    let isSelected: Bool
-    let action: () -> Void
+struct ColorSliderView: View {
+    @Binding var selectedColor: Color
+    @State private var hue: Double = 0
+    @State private var saturation: Double = 0.8
+    @State private var brightness: Double = 0.8
     
     var body: some View {
-        Button(action: action) {
-            ZStack {
-                Circle()
-                    .fill(color)
-                    .frame(width: 30, height: 30)
-                if isSelected {
-                    Circle()
-                        .stroke(Color.white, lineWidth: 2)
-                        .frame(width: 36, height: 36)
+        VStack(spacing: 12) {
+            // Color preview
+            RoundedRectangle(cornerRadius: 8)
+                .fill(selectedColor)
+                .frame(height: 40)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .stroke(Color.white.opacity(0.2), lineWidth: 1)
+                )
+            
+            // Hue slider
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Hue")
+                    .font(.caption)
+                    .foregroundColor(.gray)
+                
+                GeometryReader { geometry in
+                    LinearGradient(gradient: Gradient(colors: stride(from: 0, to: 1, by: 0.01).map {
+                        Color(hue: $0, saturation: saturation, brightness: brightness)
+                    }), startPoint: .leading, endPoint: .trailing)
+                    .cornerRadius(6)
+                    .gesture(
+                        DragGesture(minimumDistance: 0)
+                            .onChanged { value in
+                                hue = min(max(0, value.location.x / geometry.size.width), 1)
+                                updateSelectedColor()
+                            }
+                    )
                 }
+                .frame(height: 20)
+            }
+            
+            // Saturation slider
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Saturation")
+                    .font(.caption)
+                    .foregroundColor(.gray)
+                
+                GeometryReader { geometry in
+                    LinearGradient(gradient: Gradient(colors: [
+                        Color(hue: hue, saturation: 0, brightness: brightness),
+                        Color(hue: hue, saturation: 1, brightness: brightness)
+                    ]), startPoint: .leading, endPoint: .trailing)
+                    .cornerRadius(6)
+                    .gesture(
+                        DragGesture(minimumDistance: 0)
+                            .onChanged { value in
+                                saturation = min(max(0, value.location.x / geometry.size.width), 1)
+                                updateSelectedColor()
+                            }
+                    )
+                }
+                .frame(height: 20)
+            }
+            
+            // Brightness slider
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Brightness")
+                    .font(.caption)
+                    .foregroundColor(.gray)
+                
+                GeometryReader { geometry in
+                    LinearGradient(gradient: Gradient(colors: [
+                        Color(hue: hue, saturation: saturation, brightness: 0),
+                        Color(hue: hue, saturation: saturation, brightness: 1)
+                    ]), startPoint: .leading, endPoint: .trailing)
+                    .cornerRadius(6)
+                    .gesture(
+                        DragGesture(minimumDistance: 0)
+                            .onChanged { value in
+                                brightness = min(max(0, value.location.x / geometry.size.width), 1)
+                                updateSelectedColor()
+                            }
+                    )
+                }
+                .frame(height: 20)
             }
         }
     }
+    
+    private func updateSelectedColor() {
+        selectedColor = Color(hue: hue, saturation: saturation, brightness: brightness)
+    }
 }
+
 
 struct AddSubjectView: View {
     @Environment(\.managedObjectContext) private var viewContext
@@ -31,11 +103,6 @@ struct AddSubjectView: View {
     @State private var isBinary = false
     @State private var hasNotes = false
     @State private var isDefaultHabit = false
-    
-    let colors: [Color] = [
-        .blue, .green, .orange, .red, .purple,
-        .yellow, .pink, .indigo, .cyan, .mint
-    ]
     
     var body: some View {
         NavigationView {
@@ -58,16 +125,8 @@ struct AddSubjectView: View {
                 }
                 
                 Section(header: Text("Color")) {
-                    LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 5), spacing: 12) {
-                        ForEach(colors, id: \.self) { color in
-                            ColorCircle(
-                                color: color,
-                                isSelected: selectedColor == color,
-                                action: { selectedColor = color }
-                            )
-                        }
-                    }
-                    .padding(.vertical, 8)
+                    ColorSliderView(selectedColor: $selectedColor)
+                        .padding(.vertical, 8)
                 }
             }
             .navigationTitle("Add Habit")
@@ -80,7 +139,6 @@ struct AddSubjectView: View {
     }
     
     private func saveHabit() {
-        print("💾 Saving new habit: \(habitName)")
         viewModel.addHabit(
             name: habitName,
             color: selectedColor,
