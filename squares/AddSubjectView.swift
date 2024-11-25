@@ -22,85 +22,72 @@ struct ColorCircle: View {
 }
 
 struct AddSubjectView: View {
-    @Binding var subjects: [Subject]
+    @Environment(\.managedObjectContext) private var viewContext
     @Environment(\.dismiss) var dismiss
-    @State private var subjectName = ""
-    @State private var selectedColor: Color = .orange
-    @State private var isDefaultSelected = false
+    @ObservedObject var viewModel: HabitsViewModel
     
-    // Expanded color options
+    @State private var habitName = ""
+    @State private var selectedColor: Color = .blue
+    @State private var isBinary = false
+    @State private var hasNotes = false
+    @State private var isDefaultHabit = false
+    
     let colors: [Color] = [
-        .orange, .blue, .green, .red, .purple,
+        .blue, .green, .orange, .red, .purple,
         .yellow, .pink, .indigo, .cyan, .mint
     ]
     
     var body: some View {
         NavigationView {
             Form {
-                TextField("Subject Name", text: $subjectName)
-                
-                Toggle("Set as Default", isOn: $isDefaultSelected)
+                Section(header: Text("Habit Details")) {
+                    TextField("Habit Name", text: $habitName)
+                    
+                    Toggle("Binary Habit (Done/Not Done)", isOn: $isBinary)
+                        .onChange(of: isBinary) { _, newValue in
+                            if newValue {
+                                hasNotes = false
+                            }
+                        }
+                    
+                    if !isBinary {
+                        Toggle("Allow Notes", isOn: $hasNotes)
+                    }
+                    
+                    Toggle("Set as Default", isOn: $isDefaultHabit)
+                }
                 
                 Section(header: Text("Color")) {
-                    VStack(spacing: 12) {
-                        // Color preview
-                        RoundedRectangle(cornerRadius: 8)
-                            .fill(selectedColor)
-                            .frame(height: 60)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 8)
-                                    .stroke(Color.gray.opacity(0.3), lineWidth: 1)
+                    LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 5), spacing: 12) {
+                        ForEach(colors, id: \.self) { color in
+                            ColorCircle(
+                                color: color,
+                                isSelected: selectedColor == color,
+                                action: { selectedColor = color }
                             )
-                        
-                        // Color grid
-                        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 5), spacing: 12) {
-                            ForEach(colors, id: \.self) { color in
-                                ColorCircle(
-                                    color: color,
-                                    isSelected: selectedColor == color,
-                                    action: { selectedColor = color }
-                                )
-                            }
                         }
                     }
                     .padding(.vertical, 8)
                 }
-                
-                if isDefaultSelected {
-                    Section(footer: Text("Default subjects are automatically selected in filters")) {
-                        Text("This subject will be selected by default")
-                            .foregroundColor(.gray)
-                    }
-                }
             }
-            .navigationTitle("Add Subject")
+            .navigationTitle("Add Habit")
             .navigationBarItems(
-                leading: Button("Cancel") {
-                    dismiss()
-                },
-                trailing: Button("Add") {
-                    if !subjectName.isEmpty {
-                        if isDefaultSelected {
-                            subjects = subjects.map { subject in
-                                Subject(name: subject.name, color: subject.color, isDefaultSelected: false)
-                            }
-                        }
-                        
-                        subjects.append(Subject(
-                            name: subjectName,
-                            color: selectedColor,
-                            isDefaultSelected: isDefaultSelected
-                        ))
-                        dismiss()
-                    }
-                }
+                leading: Button("Cancel") { dismiss() },
+                trailing: Button("Save") { saveHabit() }
+                    .disabled(habitName.isEmpty)
             )
         }
     }
-}
-
-struct AddSubjectView_Previews: PreviewProvider {
-    static var previews: some View {
-        AddSubjectView(subjects: .constant([]))
+    
+    private func saveHabit() {
+        print("💾 Saving new habit: \(habitName)")
+        viewModel.addHabit(
+            name: habitName,
+            color: selectedColor,
+            isBinary: isBinary,
+            hasNotes: hasNotes,
+            isDefault: isDefaultHabit
+        )
+        dismiss()
     }
 }

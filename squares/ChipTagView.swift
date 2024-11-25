@@ -8,31 +8,33 @@
 import SwiftUI
 
 enum WorkoutColors {
-    static let colors: [String: Color] = [
-        "Run": .blue,
-        "Ride": .green
-        // Add more workout types as needed
-    ]
+    static let defaultColor: Color = .gray.opacity(0.3)
     
     static func getColor(for workoutType: String?) -> Color {
-        guard let type = workoutType else { return .gray.opacity(0.3) }
-        return colors[type] ?? .gray.opacity(0.3)
+        guard let type = workoutType else { return defaultColor }
+        return Color(hex: type) ?? defaultColor
     }
 }
 
 struct SubjectFilterBar: View {
     @Binding var selectedTypes: Set<String>
+    @FetchRequest(
+        entity: Habit.entity(),
+        sortDescriptors: [NSSortDescriptor(keyPath: \Habit.createdAt, ascending: true)]
+    ) var habits: FetchedResults<Habit>
     
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
-                ForEach(Array(WorkoutColors.colors.keys), id: \.self) { workoutType in
-                    FilterChipView(
-                        type: workoutType,
-                        color: WorkoutColors.colors[workoutType] ?? .gray,
-                        isSelected: selectedTypes.contains(workoutType)
-                    ) {
-                        toggleType(workoutType)
+                ForEach(habits, id: \.id) { habit in
+                    if let name = habit.name {
+                        FilterChipView(
+                            type: name,
+                            color: Color(hex: habit.colorHex ?? "#808080") ?? .gray,
+                            isSelected: selectedTypes.contains(name)
+                        ) {
+                            toggleType(name)
+                        }
                     }
                 }
             }

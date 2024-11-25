@@ -13,7 +13,7 @@ struct ContentView: View {
                         Text("Notes")
                             .font(.largeTitle)
                             .foregroundColor(.orange)
-                        SubjectsPage()
+                        SubjectsPage(context: viewContext)
                     }
                     .tag(0)
                     

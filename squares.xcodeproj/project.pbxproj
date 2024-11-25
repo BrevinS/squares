@@ -35,6 +35,10 @@
 		1EEAE0FA2C94A0B900497F8F /* SquareView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1EEAE0F92C94A0B900497F8F /* SquareView.swift */; };
 		1EEAE1002C94C14400497F8F /* SubjectsPage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1EEAE0FF2C94C14400497F8F /* SubjectsPage.swift */; };
 		1EEAE1022C94C16300497F8F /* AddSubjectView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1EEAE1012C94C16300497F8F /* AddSubjectView.swift */; };
+		21CCF5402CF435DF00E56B43 /* HabitEntry+CoreDataProperties.swift in Sources */ = {isa = PBXBuildFile; fileRef = 21CCF53F2CF435DF00E56B43 /* HabitEntry+CoreDataProperties.swift */; };
+		21CCF5412CF435DF00E56B43 /* Habit+CoreDataProperties.swift in Sources */ = {isa = PBXBuildFile; fileRef = 21CCF53D2CF435DF00E56B43 /* Habit+CoreDataProperties.swift */; };
+		21CCF5422CF435DF00E56B43 /* HabitEntry+CoreDataClass.swift in Sources */ = {isa = PBXBuildFile; fileRef = 21CCF53E2CF435DF00E56B43 /* HabitEntry+CoreDataClass.swift */; };
+		21CCF5432CF435DF00E56B43 /* Habit+CoreDataClass.swift in Sources */ = {isa = PBXBuildFile; fileRef = 21CCF53C2CF435DF00E56B43 /* Habit+CoreDataClass.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -68,6 +72,10 @@
 		1EEAE0F92C94A0B900497F8F /* SquareView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SquareView.swift; sourceTree = "<group>"; };
 		1EEAE0FF2C94C14400497F8F /* SubjectsPage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubjectsPage.swift; sourceTree = "<group>"; };
 		1EEAE1012C94C16300497F8F /* AddSubjectView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddSubjectView.swift; sourceTree = "<group>"; };
+		21CCF53C2CF435DF00E56B43 /* Habit+CoreDataClass.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Habit+CoreDataClass.swift"; sourceTree = "<group>"; };
+		21CCF53D2CF435DF00E56B43 /* Habit+CoreDataProperties.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Habit+CoreDataProperties.swift"; sourceTree = "<group>"; };
+		21CCF53E2CF435DF00E56B43 /* HabitEntry+CoreDataClass.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HabitEntry+CoreDataClass.swift"; sourceTree = "<group>"; };
+		21CCF53F2CF435DF00E56B43 /* HabitEntry+CoreDataProperties.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HabitEntry+CoreDataProperties.swift"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -86,6 +94,10 @@
 		1E49FFB72C93845F00BB140C = {
 			isa = PBXGroup;
 			children = (
+				21CCF53C2CF435DF00E56B43 /* Habit+CoreDataClass.swift */,
+				21CCF53D2CF435DF00E56B43 /* Habit+CoreDataProperties.swift */,
+				21CCF53E2CF435DF00E56B43 /* HabitEntry+CoreDataClass.swift */,
+				21CCF53F2CF435DF00E56B43 /* HabitEntry+CoreDataProperties.swift */,
 				1E8D611C2CB60AF9007BA51C /* Shaders.metal */,
 				1E49FFC22C93845F00BB140C /* squares */,
 				1E49FFC12C93845F00BB140C /* Products */,
@@ -239,6 +251,10 @@
 				1EEAE0F62C948E7300497F8F /* AddActivity.swift in Sources */,
 				1EB4443B2CC7246400DA5DE2 /* ChipTagView.swift in Sources */,
 				1E9348B32CD2CF83006E834B /* WeightMeasurement+Helper.swift in Sources */,
+				21CCF5402CF435DF00E56B43 /* HabitEntry+CoreDataProperties.swift in Sources */,
+				21CCF5412CF435DF00E56B43 /* Habit+CoreDataProperties.swift in Sources */,
+				21CCF5422CF435DF00E56B43 /* HabitEntry+CoreDataClass.swift in Sources */,
+				21CCF5432CF435DF00E56B43 /* Habit+CoreDataClass.swift in Sources */,
 				1E85B9C82CF026510090E507 /* CalorieModuleView.swift in Sources */,
 				1E1711792CB4D08700CB574D /* WorkoutDetails.swift in Sources */,
 				1EEAE1022C94C16300497F8F /* AddSubjectView.swift in Sources */,

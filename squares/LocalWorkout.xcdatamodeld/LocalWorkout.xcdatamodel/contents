@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<model type="com.apple.IDECoreDataModeler.DataModel" documentVersion="1.0" lastSavedToolsVersion="22225" systemVersion="23F79" minimumToolsVersion="Automatic" sourceLanguage="Swift" usedWithSwiftData="YES" userDefinedModelVersionIdentifier="">
+<model type="com.apple.IDECoreDataModeler.DataModel" documentVersion="1.0" lastSavedToolsVersion="23507" systemVersion="24B2091" minimumToolsVersion="Automatic" sourceLanguage="Swift" usedWithSwiftData="YES" userDefinedModelVersionIdentifier="">
     <entity name="DetailedWorkout" representedClassName="DetailedWorkout" syncable="YES" codeGenerationType="class">
         <attribute name="average_heartrate" optional="YES" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES"/>
         <attribute name="average_speed" optional="YES" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES"/>
@@ -18,6 +18,23 @@
         <attribute name="type" optional="YES" attributeType="String"/>
         <attribute name="workout_id" optional="YES" attributeType="Integer 64" defaultValueString="0" usesScalarValueType="YES"/>
         <relationship name="localWorkout" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="LocalWorkout" inverseName="detailedWorkout" inverseEntity="LocalWorkout"/>
+    </entity>
+    <entity name="Habit" representedClassName="squares.Habit" syncable="YES">
+        <attribute name="colorHex" attributeType="String"/>
+        <attribute name="createdAt" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="hasNotes" attributeType="Boolean" usesScalarValueType="YES"/>
+        <attribute name="id" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="isBinary" attributeType="Boolean" usesScalarValueType="YES"/>
+        <attribute name="isDefaultHabit" attributeType="Boolean" usesScalarValueType="YES"/>
+        <attribute name="name" attributeType="String"/>
+        <relationship name="entries" optional="YES" toMany="YES" deletionRule="Cascade" destinationEntity="HabitEntry" inverseName="habit" inverseEntity="HabitEntry"/>
+    </entity>
+    <entity name="HabitEntry" representedClassName="squares.HabitEntry" syncable="YES">
+        <attribute name="completed" attributeType="Boolean" usesScalarValueType="YES"/>
+        <attribute name="date" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="id" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="notes" optional="YES" attributeType="String"/>
+        <relationship name="habit" maxCount="1" deletionRule="Nullify" destinationEntity="Habit" inverseName="entries" inverseEntity="Habit"/>
     </entity>
     <entity name="LocalWorkout" representedClassName="LocalWorkout" syncable="YES" codeGenerationType="class">
         <attribute name="date" optional="YES" attributeType="Date" usesScalarValueType="NO"/>

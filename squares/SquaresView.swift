@@ -8,6 +8,23 @@ struct SquaresView: View {
     @State private var daysOfWeek = ["S", "M", "T", "W", "T", "F", "S"]
     let expandedHeight = 19
     
+    @Environment(\.managedObjectContext) private var viewContext
+    
+    @FetchRequest(
+        entity: Habit.entity(),
+        sortDescriptors: [
+            NSSortDescriptor(keyPath: \Habit.createdAt, ascending: true)
+        ]
+    ) private var habits: FetchedResults<Habit>
+
+    @FetchRequest(
+        entity: LocalWorkout.entity(),
+        sortDescriptors: [
+            NSSortDescriptor(keyPath: \LocalWorkout.date, ascending: true)
+        ],
+        animation: .default
+    ) private var workouts: FetchedResults<LocalWorkout>
+    
     let squareSize: CGFloat = 40
     let squareSpacing: CGFloat = 1
     let boundingBoxPadding: CGFloat = 20
@@ -34,23 +51,19 @@ struct SquaresView: View {
     @State private var selectedSquareIndex: Int?
     @State private var animationOrigin: Int?
     
+    @State private var cardOffset: CGFloat = 0
+    @State private var isDragging = false
+    @GestureState private var dragState = CGSize.zero
+
     // Strava refresh
     @State private var isRefreshing = false
     @State private var selectedWorkoutDetails: WorkoutDetails?
     @EnvironmentObject var authManager: StravaAuthManager
     
     // Initialize subjects with defaults
-    @State private var subjects: [Subject] = Subject.defaultSubjects()
+    @State private var selectedHabitNames: Set<String> = []
     
-    // Initialize selectedSubjects with all subjects except "Workouts" since it's the default view state
-    @State private var selectedSubjects: Set<Subject> = Set(Subject.defaultSubjects().filter { $0.name != "Workouts" && $0.isDefaultSelected })
-    
-    @Environment(\.managedObjectContext) private var viewContext
-    
-    @FetchRequest(
-        entity: LocalWorkout.entity(),
-        sortDescriptors: [NSSortDescriptor(keyPath: \LocalWorkout.date, ascending: true)]
-    ) var workouts: FetchedResults<LocalWorkout>
+  
     
     private var gridWidth: CGFloat {
         CGFloat(columns) * squareSize + CGFloat(columns - 1) * squareSpacing
@@ -66,13 +79,8 @@ struct SquaresView: View {
             return false
         }
         
-        // If no types are selected, show all workouts
-        if selectedTypes.isEmpty {
-            return true
-        }
-        
-        // Show workout if its type is selected
-        return selectedTypes.contains(workoutType)
+        // Only show Run workouts
+        return workoutType == "Run"
     }
     
     private func printWorkouts() {
@@ -248,6 +256,81 @@ struct SquaresView: View {
         }
     }
     
+    private func hasHabitEntry(for date: Date) -> Bool {
+        let calendar = Calendar.current
+        let startOfDay = calendar.startOfDay(for: date)
+        let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay)!
+        
+        let fetchRequest: NSFetchRequest<HabitEntry> = HabitEntry.fetchRequest()
+        fetchRequest.predicate = NSPredicate(
+            format: "date >= %@ AND date < %@ AND completed = YES",
+            startOfDay as NSDate,
+            endOfDay as NSDate
+        )
+        fetchRequest.fetchLimit = 1
+        
+        do {
+            let count = try viewContext.count(for: fetchRequest)
+            return count > 0
+        } catch {
+            print("❌ Error checking for habit entries: \(error)")
+            return false
+        }
+    }
+    
+    // Helper function to get habit color for a date
+    private func getHabitColor(for date: Date) -> Color {
+        let calendar = Calendar.current
+        let startOfDay = calendar.startOfDay(for: date)
+        let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay)!
+        
+        let fetchRequest: NSFetchRequest<HabitEntry> = HabitEntry.fetchRequest()
+        fetchRequest.predicate = NSPredicate(
+            format: "date >= %@ AND date < %@ AND completed = YES",
+            startOfDay as NSDate,
+            endOfDay as NSDate
+        )
+        
+        do {
+            let entries = try viewContext.fetch(fetchRequest)
+            if let firstEntry = entries.first,
+               let habit = firstEntry.habit,
+               let colorHex = habit.colorHex {
+                return Color(hex: colorHex) ?? .gray
+            }
+        } catch {
+            print("❌ Error fetching habit entries: \(error)")
+        }
+        
+        return Color(red: 23/255, green: 27/255, blue: 33/255)
+    }
+    
+    // Update FetchRequests
+    private var habitsRequest: FetchRequest<Habit> {
+        FetchRequest(
+            entity: Habit.entity(),
+            sortDescriptors: [
+                NSSortDescriptor(keyPath: \Habit.createdAt, ascending: true)
+            ]
+        )
+    }
+    
+    private var workoutsRequest: FetchRequest<LocalWorkout> {
+        FetchRequest(
+            entity: LocalWorkout.entity(),
+            sortDescriptors: [
+                NSSortDescriptor(keyPath: \LocalWorkout.date, ascending: true)
+            ],
+            animation: .default
+        )
+    }
+    
+    private func getSelectedHabits() -> [Habit] {
+        return habits.filter { habit in
+            selectedHabitNames.contains(habit.name ?? "")
+        }
+    }
+    
     private func calculateAnimationDelay(for index: Int) -> Double {
         guard let origin = animationOrigin else { return 0 }
         
@@ -274,13 +357,14 @@ struct SquaresView: View {
         let dayStart = calendar.startOfDay(for: date)
         let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart)!
         
-        // Find any workout that falls within this day
+        // Find any Run workout that falls within this day
         let workout = workouts.first { workout in
-            guard let workoutDate = workout.date else { return false }
-            return workoutDate >= dayStart && workoutDate < dayEnd
+            guard let workoutDate = workout.date,
+                  let workoutType = workout.type else { return false }
+            return workoutDate >= dayStart && workoutDate < dayEnd && workoutType == "Run"
         }
         
-        return shouldShowWorkout(workout) ? workout : nil
+        return workout
     }
     
     private var settingsButton: some View {
@@ -679,11 +763,62 @@ struct SquaresView: View {
         }
     }
 
-
-    struct SquaresView_Previews: PreviewProvider {
-        static var previews: some View {
+struct SquaresView_Previews: PreviewProvider {
+    static let context: NSManagedObjectContext = {
+        let context = PersistenceController.preview.container.viewContext
+        
+        // Add sample workout data
+        let workout = LocalWorkout(context: context)
+        workout.id = Int64(1)
+        workout.date = Date()
+        workout.distance = 5000  // 5km
+        workout.type = "Run"
+        
+        // Add detailed workout data
+        let detailedWorkout = DetailedWorkout(context: context)
+        detailedWorkout.workout_id = workout.id
+        detailedWorkout.name = "Morning Run"
+        detailedWorkout.type = "Run"
+        detailedWorkout.average_heartrate = 150
+        detailedWorkout.average_speed = 3.5
+        detailedWorkout.elapsed_time = 1800
+        detailedWorkout.max_heartrate = 175
+        detailedWorkout.max_speed = 4.2
+        detailedWorkout.moving_time = 1750
+        detailedWorkout.start_date = Date()
+        detailedWorkout.start_date_local = Date()
+        detailedWorkout.time_zone = "UTC"
+        detailedWorkout.total_elevation_gain = 100
+        
+        workout.detailedWorkout = detailedWorkout
+        
+        // Add sample habit data
+        let habit = Habit(context: context)
+        habit.id = UUID()
+        habit.name = "Running"
+        habit.colorHex = "#0000FF"  // Blue
+        habit.isBinary = true
+        habit.hasNotes = false
+        habit.isDefaultHabit = true
+        habit.createdAt = Date()
+        
+        // Save the context
+        do {
+            try context.save()
+        } catch {
+            print("Error setting up preview context: \(error)")
+        }
+        
+        return context
+    }()
+    
+    static var previews: some View {
+        NavigationView {
             SquaresView()
-                .environment(\.managedObjectContext, PersistenceController.preview.container.viewContext)
+                .environment(\.managedObjectContext, context)
                 .environmentObject(StravaAuthManager())
         }
+        .previewDevice(PreviewDevice(rawValue: "iPhone 15 Pro"))
+        .previewDisplayName("iPhone 15 Pro")
+    }
 }
