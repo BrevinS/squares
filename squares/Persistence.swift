@@ -7,7 +7,24 @@ struct PersistenceController {
         let result = PersistenceController(inMemory: true)
         let viewContext = result.container.viewContext
         
-        // Create sample workouts
+        // Create sample habits first
+        let habit = Habit(context: viewContext)
+        habit.id = UUID()
+        habit.name = "Running"
+        habit.colorHex = "#0000FF"
+        habit.isBinary = true
+        habit.hasNotes = false
+        habit.isDefaultHabit = true
+        habit.createdAt = Date()
+        
+        // Create sample habit entry
+        let entry = HabitEntry(context: viewContext)
+        entry.id = UUID()
+        entry.date = Date()
+        entry.completed = true
+        entry.habit = habit
+        
+        // Create sample workouts (existing code)
         for _ in 0..<10 {
             let newWorkout = LocalWorkout(context: viewContext)
             newWorkout.id = Int64.random(in: 1...1000)
@@ -34,7 +51,7 @@ struct PersistenceController {
             newWorkout.detailedWorkout = detailedWorkout
         }
         
-        // Create sample weight measurements
+        // Create sample weight measurements (existing code)
         let calendar = Calendar.current
         let today = Date()
         for day in 0..<7 {
@@ -42,7 +59,7 @@ struct PersistenceController {
                 let weightMeasurement = WeightMeasurement(context: viewContext)
                 weightMeasurement.id = UUID()
                 weightMeasurement.date = date
-                weightMeasurement.weight = Double.random(in: 150...160) // Sample weight range
+                weightMeasurement.weight = Double.random(in: 150...160)
             }
         }
         
@@ -58,14 +75,24 @@ struct PersistenceController {
     let container: NSPersistentContainer
 
     init(inMemory: Bool = false) {
+        print("🔄 Initializing Core Data stack")
         container = NSPersistentContainer(name: "LocalWorkout")
+        
+        // Add this debug print
+        print("📦 Model entities: ", container.managedObjectModel.entities.map {
+            "name: \($0.name ?? "nil"), managedObjectClassName: \($0.managedObjectClassName)"
+        })
+        
         if inMemory {
             container.persistentStoreDescriptions.first!.url = URL(fileURLWithPath: "/dev/null")
         }
+        
         container.loadPersistentStores { (storeDescription, error) in
             if let error = error as NSError? {
+                print("❌ Failed to load persistent stores: \(error), \(error.userInfo)")
                 fatalError("Unresolved error \(error), \(error.userInfo)")
             }
+            print("✅ Successfully loaded persistent store: \(storeDescription.description)")
         }
         container.viewContext.automaticallyMergesChangesFromParent = true
     }

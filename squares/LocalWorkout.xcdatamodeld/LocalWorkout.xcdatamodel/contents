@@ -19,7 +19,7 @@
         <attribute name="workout_id" optional="YES" attributeType="Integer 64" defaultValueString="0" usesScalarValueType="YES"/>
         <relationship name="localWorkout" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="LocalWorkout" inverseName="detailedWorkout" inverseEntity="LocalWorkout"/>
     </entity>
-    <entity name="Habit" representedClassName="squares.Habit" syncable="YES">
+    <entity name="Habit" representedClassName="Habit" syncable="YES">
         <attribute name="colorHex" attributeType="String"/>
         <attribute name="createdAt" attributeType="Date" usesScalarValueType="NO"/>
         <attribute name="hasNotes" attributeType="Boolean" usesScalarValueType="YES"/>
@@ -29,7 +29,7 @@
         <attribute name="name" attributeType="String"/>
         <relationship name="entries" optional="YES" toMany="YES" deletionRule="Cascade" destinationEntity="HabitEntry" inverseName="habit" inverseEntity="HabitEntry"/>
     </entity>
-    <entity name="HabitEntry" representedClassName="squares.HabitEntry" syncable="YES">
+    <entity name="HabitEntry" representedClassName="HabitEntry" syncable="YES">
         <attribute name="completed" attributeType="Boolean" usesScalarValueType="YES"/>
         <attribute name="date" attributeType="Date" usesScalarValueType="NO"/>
         <attribute name="id" attributeType="UUID" usesScalarValueType="NO"/>

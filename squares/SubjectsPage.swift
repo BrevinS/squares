@@ -131,7 +131,6 @@ struct SubjectsPage: View {
     }
 }
 
-// MARK: - HabitRowView
 struct HabitRowView: View {
     let habit: Habit
     

@@ -11,12 +11,18 @@ struct SquaresView: View {
     @Environment(\.managedObjectContext) private var viewContext
     
     @FetchRequest(
-        entity: Habit.entity(),
+        entity: {
+            let entityDescription = NSEntityDescription.entity(forEntityName: "Habit", in: PersistenceController.shared.container.viewContext)
+            print("🎯 Habit entity description: \(String(describing: entityDescription))")
+            return entityDescription!
+        }(),
         sortDescriptors: [
             NSSortDescriptor(keyPath: \Habit.createdAt, ascending: true)
-        ]
+        ],
+        animation: .default
     ) private var habits: FetchedResults<Habit>
 
+    // Replace the existing FetchRequest for workouts
     @FetchRequest(
         entity: LocalWorkout.entity(),
         sortDescriptors: [
@@ -24,6 +30,12 @@ struct SquaresView: View {
         ],
         animation: .default
     ) private var workouts: FetchedResults<LocalWorkout>
+    
+    private var hasHabits: Bool {
+        let count = habits.count
+        print("👀 Checking hasHabits - count: \(count)")
+        return !habits.isEmpty
+    }
     
     let squareSize: CGFloat = 40
     let squareSpacing: CGFloat = 1
@@ -108,8 +120,10 @@ struct SquaresView: View {
                         .padding(.bottom, 10)
                         .background(Color(red: 14/255, green: 17/255, blue: 22/255))
                         
-                        SubjectFilterBar(selectedTypes: $selectedTypes)
-                        .padding(.bottom, 10)
+                        if hasHabits {
+                            SubjectFilterBar(selectedTypes: $selectedTypes)
+                                .padding(.bottom, 10)
+                        }
                         
                         Color.clear.frame(height: 1).id("top")
                         
@@ -229,6 +243,26 @@ struct SquaresView: View {
                 }
                 .id(refreshTrigger)
                 .onAppear {
+                    //diagnoseHabitEntity()
+                    print("📊 SquaresView appeared")
+                    print("💾 Current context: \(viewContext)")
+                    print("📝 Number of habits: \(habits.count)")
+                    print("🏃‍♂️ Number of workouts: \(workouts.count)")
+                    
+                    // Log available entities
+                    if let entities = viewContext.persistentStoreCoordinator?.managedObjectModel.entities {
+                        print("📋 Available entities:", entities.map { $0.name ?? "unnamed" })
+                    }
+                    
+                    // Test fetch request manually
+                    let fetchRequest: NSFetchRequest<Habit> = Habit.fetchRequest()
+                    do {
+                        let count = try viewContext.count(for: fetchRequest)
+                        print("🔢 Manual habit count: \(count)")
+                    } catch {
+                        print("❌ Error counting habits: \(error)")
+                    }
+                    
                     blocksDropped = true
                     alignDaysOfWeek()
                     printWorkouts()
@@ -254,16 +288,40 @@ struct SquaresView: View {
                 resetView()
             }
         }
+        
+    }
+    
+    private func diagnoseHabitEntity() {
+        print("🔍 Starting Habit entity diagnosis")
+        
+        // Check model configuration
+        if let model = viewContext.persistentStoreCoordinator?.managedObjectModel {
+            print("📝 Model entities: \(model.entities.map { $0.name ?? "unnamed" })")
+            if let habitEntity = model.entities.first(where: { $0.name == "Habit" }) {
+                print("✅ Found Habit entity:")
+                print("   Name: \(habitEntity.name ?? "nil")")
+                print("   Class: \(habitEntity.managedObjectClassName)")
+                print("   Properties: \(habitEntity.properties.map { $0.name })")
+            } else {
+                print("❌ No Habit entity found in model")
+            }
+        }
+        
+        // Test creating a Habit
+        let habit = Habit(context: viewContext)
+        print("🆕 Created test habit: \(habit)")
     }
     
     private func hasHabitEntry(for date: Date) -> Bool {
+        guard hasHabits else { return false }
+        
         let calendar = Calendar.current
         let startOfDay = calendar.startOfDay(for: date)
         let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay)!
         
-        let fetchRequest: NSFetchRequest<HabitEntry> = HabitEntry.fetchRequest()
+        let fetchRequest = HabitEntry.fetchRequest()
         fetchRequest.predicate = NSPredicate(
-            format: "date >= %@ AND date < %@ AND completed = YES",
+            format: "date >= %@ AND date < %@ AND complete = YES",
             startOfDay as NSDate,
             endOfDay as NSDate
         )
@@ -277,16 +335,19 @@ struct SquaresView: View {
             return false
         }
     }
-    
-    // Helper function to get habit color for a date
+        
     private func getHabitColor(for date: Date) -> Color {
+        guard hasHabits else {
+            return Color(red: 23/255, green: 27/255, blue: 33/255)
+        }
+        
         let calendar = Calendar.current
         let startOfDay = calendar.startOfDay(for: date)
         let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay)!
         
-        let fetchRequest: NSFetchRequest<HabitEntry> = HabitEntry.fetchRequest()
+        let fetchRequest = HabitEntry.fetchRequest()
         fetchRequest.predicate = NSPredicate(
-            format: "date >= %@ AND date < %@ AND completed = YES",
+            format: "date >= %@ AND date < %@ AND complete = YES",
             startOfDay as NSDate,
             endOfDay as NSDate
         )
@@ -305,19 +366,36 @@ struct SquaresView: View {
         return Color(red: 23/255, green: 27/255, blue: 33/255)
     }
     
-    // Update FetchRequests
     private var habitsRequest: FetchRequest<Habit> {
-        FetchRequest(
-            entity: Habit.entity(),
+        guard let habitEntity = NSEntityDescription.entity(forEntityName: "Habit", in: viewContext) else {
+            return FetchRequest<Habit>(
+                entity: Habit.entity(),
+                sortDescriptors: [],
+                predicate: NSPredicate(value: false)  // Return empty result if entity doesn't exist
+            )
+        }
+        
+        return FetchRequest<Habit>(
+            entity: habitEntity,
             sortDescriptors: [
                 NSSortDescriptor(keyPath: \Habit.createdAt, ascending: true)
             ]
         )
     }
     
+    
+
     private var workoutsRequest: FetchRequest<LocalWorkout> {
-        FetchRequest(
-            entity: LocalWorkout.entity(),
+        guard let workoutEntity = NSEntityDescription.entity(forEntityName: "LocalWorkout", in: viewContext) else {
+            return FetchRequest<LocalWorkout>(
+                entity: LocalWorkout.entity(),
+                sortDescriptors: [],
+                predicate: NSPredicate(value: false)  // Return empty result if entity doesn't exist
+            )
+        }
+        
+        return FetchRequest<LocalWorkout>(
+            entity: workoutEntity,
             sortDescriptors: [
                 NSSortDescriptor(keyPath: \LocalWorkout.date, ascending: true)
             ],
@@ -764,61 +842,15 @@ struct SquaresView: View {
     }
 
 struct SquaresView_Previews: PreviewProvider {
-    static let context: NSManagedObjectContext = {
-        let context = PersistenceController.preview.container.viewContext
-        
-        // Add sample workout data
-        let workout = LocalWorkout(context: context)
-        workout.id = Int64(1)
-        workout.date = Date()
-        workout.distance = 5000  // 5km
-        workout.type = "Run"
-        
-        // Add detailed workout data
-        let detailedWorkout = DetailedWorkout(context: context)
-        detailedWorkout.workout_id = workout.id
-        detailedWorkout.name = "Morning Run"
-        detailedWorkout.type = "Run"
-        detailedWorkout.average_heartrate = 150
-        detailedWorkout.average_speed = 3.5
-        detailedWorkout.elapsed_time = 1800
-        detailedWorkout.max_heartrate = 175
-        detailedWorkout.max_speed = 4.2
-        detailedWorkout.moving_time = 1750
-        detailedWorkout.start_date = Date()
-        detailedWorkout.start_date_local = Date()
-        detailedWorkout.time_zone = "UTC"
-        detailedWorkout.total_elevation_gain = 100
-        
-        workout.detailedWorkout = detailedWorkout
-        
-        // Add sample habit data
-        let habit = Habit(context: context)
-        habit.id = UUID()
-        habit.name = "Running"
-        habit.colorHex = "#0000FF"  // Blue
-        habit.isBinary = true
-        habit.hasNotes = false
-        habit.isDefaultHabit = true
-        habit.createdAt = Date()
-        
-        // Save the context
-        do {
-            try context.save()
-        } catch {
-            print("Error setting up preview context: \(error)")
-        }
-        
-        return context
-    }()
-    
     static var previews: some View {
-        NavigationView {
+        print("🎨 Initializing SquaresView preview")
+        let context = PersistenceController.preview.container.viewContext
+        print("🖼️ Preview context created: \(context)")
+        
+        return NavigationView {
             SquaresView()
                 .environment(\.managedObjectContext, context)
                 .environmentObject(StravaAuthManager())
         }
-        .previewDevice(PreviewDevice(rawValue: "iPhone 15 Pro"))
-        .previewDisplayName("iPhone 15 Pro")
     }
 }

@@ -8,28 +8,26 @@
 
 import Foundation
 import CoreData
-import squares
 
 extension Habit {
-
     @nonobjc public class func fetchRequest() -> NSFetchRequest<Habit> {
-        return NSFetchRequest<Habit>(entityName: "Habit")
+        print("📬 Creating Habit fetch request")
+        let request = NSFetchRequest<Habit>(entityName: "Habit")
+        print("📫 Fetch request created: \(request)")
+        return request
     }
-
-    @NSManaged public var colorHex: String?
-    @NSManaged public var createdAt: Date?
-    @NSManaged public var hasNotes: Bool
     @NSManaged public var id: UUID?
-    @NSManaged public var isBinary: Bool
-    @NSManaged public var isDefaultHabit: Bool
     @NSManaged public var name: String?
+    @NSManaged public var colorHex: String?
+    @NSManaged public var isBinary: Bool
+    @NSManaged public var hasNotes: Bool
+    @NSManaged public var isDefaultHabit: Bool
+    @NSManaged public var createdAt: Date?
     @NSManaged public var entries: NSSet?
-
 }
 
-// MARK: Generated accessors for entries
 extension Habit {
-
+    
     @objc(addEntriesObject:)
     @NSManaged public func addToEntries(_ value: HabitEntry)
 
@@ -41,9 +39,7 @@ extension Habit {
 
     @objc(removeEntries:)
     @NSManaged public func removeFromEntries(_ values: NSSet)
-
 }
 
 extension Habit : Identifiable {
-
 }

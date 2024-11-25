@@ -9,7 +9,7 @@
 import Foundation
 import CoreData
 
-
+@objc(HabitEntry)
 public class HabitEntry: NSManagedObject {
 
 }
