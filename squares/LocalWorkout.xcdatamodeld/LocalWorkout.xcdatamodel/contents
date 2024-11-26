@@ -7,13 +7,16 @@
         <attribute name="elapsed_time" optional="YES" attributeType="Integer 64" defaultValueString="0" usesScalarValueType="YES"/>
         <attribute name="elevation_high" optional="YES" attributeType="String"/>
         <attribute name="elevation_low" optional="YES" attributeType="String"/>
+        <attribute name="end_lnglat" optional="YES" attributeType="String" customClassName="NSArray" storedInTruthFile="YES"/>
         <attribute name="max_heartrate" optional="YES" attributeType="Integer 64" defaultValueString="0.0" usesScalarValueType="YES"/>
         <attribute name="max_speed" optional="YES" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES"/>
         <attribute name="moving_time" optional="YES" attributeType="Integer 64" defaultValueString="0" usesScalarValueType="YES"/>
         <attribute name="name" optional="YES" attributeType="String"/>
+        <attribute name="polyline" optional="YES" attributeType="String"/>
         <attribute name="sport_type" optional="YES" attributeType="String"/>
         <attribute name="start_date" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
         <attribute name="start_date_local" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="start_lnglat" optional="YES" attributeType="String" customClassName="NSArray" storedInTruthFile="YES"/>
         <attribute name="time_zone" optional="YES" attributeType="String"/>
         <attribute name="total_elevation_gain" optional="YES" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES"/>
         <attribute name="type" optional="YES" attributeType="String"/>

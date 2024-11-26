@@ -20,6 +20,9 @@ struct WorkoutDetails: Codable {
     let time_zone: String
     let total_elevation_gain: Double
     let calories: Double
+    let start_lnglat: [[String: String]]
+    let end_lnglat: [[String: String]]
+    let polyline: String
     
     // Add a new property to store the raw JSON string
     var rawJSON: String?
@@ -44,6 +47,9 @@ struct WorkoutDetails: Codable {
         self.time_zone = ""
         self.total_elevation_gain = 0
         self.calories = 0
+        self.start_lnglat = []
+        self.end_lnglat = []
+        self.polyline = ""
         self.rawJSON = nil
     }
 }

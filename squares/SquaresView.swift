@@ -666,8 +666,8 @@ struct SquaresView: View {
         
         URLSession.shared.dataTask(with: url) { data, response, error in
             if let data = data, let jsonString = String(data: data, encoding: .utf8) {
-                        print("📊 Raw workout details response: \(jsonString)")  // Add this debug line
-                    }
+                print("📊 Raw workout details response: \(jsonString)")  // Add this debug line
+            }
             
             if let error = error {
                 print("Network error fetching workout details: \(error)")
@@ -705,9 +705,46 @@ struct SquaresView: View {
     }
 
     private func saveDetailedWorkout(_ details: [String: Any], for workoutId: Int64) {
+        print("💾 Saving workout details. ID: \(workoutId)")
+            
         viewContext.perform {
             if let existingWorkout = self.workouts.first(where: { $0.id == workoutId }) {
                 let detailedWorkout = existingWorkout.detailedWorkout ?? DetailedWorkout(context: viewContext)
+                
+                // Save map data as raw string
+                if let mapString = details["polyline"] as? String {
+                    print("📍 Storing map data as string")
+                    detailedWorkout.polyline = mapString
+                } else {
+                    print("ℹ️ No map data available for this workout")
+                }
+                
+                // Handle coordinate strings
+                if let startCoords = details["start_lnglat"] as? [[String: Any]] {
+                    do {
+                        let jsonData = try JSONSerialization.data(withJSONObject: startCoords)
+                        if let jsonString = String(data: jsonData, encoding: .utf8) {
+                            print("✅ Storing start coordinates: \(jsonString)")
+                            detailedWorkout.start_lnglat = jsonString
+                        }
+                    } catch {
+                        print("❌ Error converting start coordinates to JSON: \(error)")
+                    }
+                }
+                
+                if let endCoords = details["end_lnglat"] as? [[String: Any]] {
+                    do {
+                        let jsonData = try JSONSerialization.data(withJSONObject: endCoords)
+                        if let jsonString = String(data: jsonData, encoding: .utf8) {
+                            print("✅ Storing end coordinates: \(jsonString)")
+                            detailedWorkout.end_lnglat = jsonString
+                        }
+                    } catch {
+                        print("❌ Error converting end coordinates to JSON: \(error)")
+                    }
+                }
+                                
+                detailedWorkout.polyline = (details["polyline"] as? String) ?? ""
                 
                 // Handle potential nil or NSNull values
                 detailedWorkout.average_heartrate = (details["average_heartrate"] as? NSNumber)?.doubleValue ?? 0
@@ -752,6 +789,25 @@ struct SquaresView: View {
     }
     
     private func updateDetailedWorkout(_ detailedWorkout: DetailedWorkout, with details: [String: Any]) {
+        
+        if let startCoords = details["start_lnglat"] as? [[String: Any]] {
+            if let jsonData = try? JSONSerialization.data(withJSONObject: startCoords),
+               let jsonString = String(data: jsonData, encoding: .utf8) {
+                print("✅ Storing start coordinates: \(jsonString)")
+                detailedWorkout.start_lnglat = jsonString
+            }
+        }
+        
+        if let endCoords = details["end_lnglat"] as? [[String: Any]] {
+            if let jsonData = try? JSONSerialization.data(withJSONObject: endCoords),
+               let jsonString = String(data: jsonData, encoding: .utf8) {
+                print("✅ Storing end coordinates: \(jsonString)")
+                detailedWorkout.end_lnglat = jsonString
+            }
+        }
+        
+        detailedWorkout.polyline = details["polyline"] as? String ?? ""
+        
         detailedWorkout.average_heartrate = details["average_heartrate"] as? Double ?? 0
         detailedWorkout.average_speed = details["average_speed"] as? Double ?? 0
         detailedWorkout.elapsed_time = Int64(details["elapsed_time"] as? Int ?? 0)
@@ -780,6 +836,13 @@ struct SquaresView: View {
         var body: some View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
+                    if let detailedWorkout = localWorkout.detailedWorkout {
+                        RunMapCard(workout: detailedWorkout)
+                            .frame(height: 200)
+                            .cornerRadius(12)
+                            .padding(.bottom, 8)
+                    }
+                    
                     Text(localWorkout.detailedWorkout?.name ?? "Unnamed Workout")
                         .font(.title)
                         .padding(.bottom, 8)

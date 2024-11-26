@@ -35,6 +35,7 @@
 		1EEAE0FA2C94A0B900497F8F /* SquareView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1EEAE0F92C94A0B900497F8F /* SquareView.swift */; };
 		1EEAE1002C94C14400497F8F /* SubjectsPage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1EEAE0FF2C94C14400497F8F /* SubjectsPage.swift */; };
 		1EEAE1022C94C16300497F8F /* AddSubjectView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1EEAE1012C94C16300497F8F /* AddSubjectView.swift */; };
+		2181E1802CF5A06100806A91 /* RunMapCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2181E17F2CF5A05C00806A91 /* RunMapCard.swift */; };
 		21CCF5402CF435DF00E56B43 /* HabitEntry+CoreDataProperties.swift in Sources */ = {isa = PBXBuildFile; fileRef = 21CCF53F2CF435DF00E56B43 /* HabitEntry+CoreDataProperties.swift */; };
 		21CCF5412CF435DF00E56B43 /* Habit+CoreDataProperties.swift in Sources */ = {isa = PBXBuildFile; fileRef = 21CCF53D2CF435DF00E56B43 /* Habit+CoreDataProperties.swift */; };
 		21CCF5422CF435DF00E56B43 /* HabitEntry+CoreDataClass.swift in Sources */ = {isa = PBXBuildFile; fileRef = 21CCF53E2CF435DF00E56B43 /* HabitEntry+CoreDataClass.swift */; };
@@ -72,6 +73,7 @@
 		1EEAE0F92C94A0B900497F8F /* SquareView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SquareView.swift; sourceTree = "<group>"; };
 		1EEAE0FF2C94C14400497F8F /* SubjectsPage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubjectsPage.swift; sourceTree = "<group>"; };
 		1EEAE1012C94C16300497F8F /* AddSubjectView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddSubjectView.swift; sourceTree = "<group>"; };
+		2181E17F2CF5A05C00806A91 /* RunMapCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunMapCard.swift; sourceTree = "<group>"; };
 		21CCF53C2CF435DF00E56B43 /* Habit+CoreDataClass.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Habit+CoreDataClass.swift"; sourceTree = "<group>"; };
 		21CCF53D2CF435DF00E56B43 /* Habit+CoreDataProperties.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Habit+CoreDataProperties.swift"; sourceTree = "<group>"; };
 		21CCF53E2CF435DF00E56B43 /* HabitEntry+CoreDataClass.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HabitEntry+CoreDataClass.swift"; sourceTree = "<group>"; };
@@ -116,6 +118,7 @@
 		1E49FFC22C93845F00BB140C /* squares */ = {
 			isa = PBXGroup;
 			children = (
+				2181E17F2CF5A05C00806A91 /* RunMapCard.swift */,
 				1E5B9E122CA9834C00B60AD5 /* Info.plist */,
 				1E49FFC32C93845F00BB140C /* squaresApp.swift */,
 				1E49FFC52C93845F00BB140C /* ContentView.swift */,
@@ -237,6 +240,7 @@
 				1E9348B12CD2CF63006E834B /* WeightService.swift in Sources */,
 				1E9081892CACFA40004CB1D2 /* Persistence.swift in Sources */,
 				1E17117B2CB4DF4C00CB574D /* NoteGraphView.swift in Sources */,
+				2181E1802CF5A06100806A91 /* RunMapCard.swift in Sources */,
 				1E49FFC62C93845F00BB140C /* ContentView.swift in Sources */,
 				1E5B9E142CAA4CF600B60AD5 /* DayView.swift in Sources */,
 				1E90818C2CACFED2004CB1D2 /* LocalWorkout.xcdatamodeld in Sources */,
