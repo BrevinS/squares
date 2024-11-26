@@ -3,6 +3,7 @@
     <entity name="DetailedWorkout" representedClassName="DetailedWorkout" syncable="YES" codeGenerationType="class">
         <attribute name="average_heartrate" optional="YES" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES"/>
         <attribute name="average_speed" optional="YES" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES"/>
+        <attribute name="calories" optional="YES" attributeType="Double" defaultValueString="0" usesScalarValueType="YES"/>
         <attribute name="elapsed_time" optional="YES" attributeType="Integer 64" defaultValueString="0" usesScalarValueType="YES"/>
         <attribute name="elevation_high" optional="YES" attributeType="String"/>
         <attribute name="elevation_low" optional="YES" attributeType="String"/>

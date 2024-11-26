@@ -16,9 +16,10 @@ struct WorkoutDetails: Codable {
     let name: String
     let sport_type: String
     let start_date: String
-    let start_date_local: String
+    let start_date_local: String    
     let time_zone: String
     let total_elevation_gain: Double
+    let calories: Double
     
     // Add a new property to store the raw JSON string
     var rawJSON: String?
@@ -42,6 +43,7 @@ struct WorkoutDetails: Codable {
         self.start_date_local = ""
         self.time_zone = ""
         self.total_elevation_gain = 0
+        self.calories = 0
         self.rawJSON = nil
     }
 }

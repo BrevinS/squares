@@ -665,6 +665,10 @@ struct SquaresView: View {
         print("Fetching workout details for workout ID: \(workoutId)")
         
         URLSession.shared.dataTask(with: url) { data, response, error in
+            if let data = data, let jsonString = String(data: data, encoding: .utf8) {
+                        print("📊 Raw workout details response: \(jsonString)")  // Add this debug line
+                    }
+            
             if let error = error {
                 print("Network error fetching workout details: \(error)")
                 return
@@ -730,6 +734,7 @@ struct SquaresView: View {
                 detailedWorkout.total_elevation_gain = (details["total_elevation_gain"] as? NSNumber)?.doubleValue ?? 0
                 detailedWorkout.type = (details["type"] as? String) ?? ""
                 detailedWorkout.workout_id = workoutId
+                detailedWorkout.calories = (details["calories"] as? NSNumber)?.doubleValue ?? 0
                 
                 existingWorkout.detailedWorkout = detailedWorkout
                 
@@ -763,6 +768,7 @@ struct SquaresView: View {
         detailedWorkout.total_elevation_gain = details["total_elevation_gain"] as? Double ?? 0
         detailedWorkout.type = details["type"] as? String ?? ""
         detailedWorkout.workout_id = Int64(details["workout_id"] as? Int ?? 0)
+        detailedWorkout.calories = details["calories"] as? Double ?? 0
         
         print("Updated detailed workout: \(detailedWorkout)")
     }
@@ -800,6 +806,9 @@ struct SquaresView: View {
                         }
                         if let elevHigh = localWorkout.detailedWorkout?.elevation_high, !elevHigh.isEmpty {
                             DetailRow(title: "Elevation High", value: String(format: "%.1f ft", (Double(elevHigh) ?? 0) * 3.28084))
+                        }
+                        if let calories = localWorkout.detailedWorkout?.calories {
+                            DetailRow(title: "CALORIES", value: String(format: "%.2f cal", calories))
                         }
                     }
                 }

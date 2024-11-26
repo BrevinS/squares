@@ -47,6 +47,7 @@ struct PersistenceController {
             detailedWorkout.start_date_local = Date()
             detailedWorkout.time_zone = "UTC"
             detailedWorkout.total_elevation_gain = Double.random(in: 0...500)
+            detailedWorkout.calories = Double.random(in: 1...6000)
             
             newWorkout.detailedWorkout = detailedWorkout
         }
