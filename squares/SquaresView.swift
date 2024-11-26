@@ -33,7 +33,7 @@ struct SquaresView: View {
     
     private var hasHabits: Bool {
         let count = habits.count
-        print("👀 Checking hasHabits - count: \(count)")
+        //print("👀 Checking hasHabits - count: \(count)")
         return !habits.isEmpty
     }
     
@@ -713,7 +713,7 @@ struct SquaresView: View {
                 
                 // Save map data as raw string
                 if let mapString = details["polyline"] as? String {
-                    print("📍 Storing map data as string")
+                    print("📍 Storing map data as string \(mapString)")
                     detailedWorkout.polyline = mapString
                 } else {
                     print("ℹ️ No map data available for this workout")
