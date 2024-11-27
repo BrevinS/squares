@@ -1,6 +1,41 @@
 import SwiftUI
 import MapKit
 
+struct FullscreenMapView: View {
+    let workout: DetailedWorkout
+    let onClose: () -> Void
+    
+    var body: some View {
+        VStack(spacing: 0) {
+            // Header
+            ZStack {
+                HStack {
+                    Button(action: onClose) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "chevron.left")
+                                .font(.system(size: 14))
+                            Text("Back")
+                                .font(.system(size: 16))
+                        }
+                        .foregroundColor(.orange)
+                    }
+                    Spacer()
+                }
+                
+                Text(workout.name ?? "Workout")
+                    .font(.headline)
+                    .foregroundColor(.white)
+            }
+            .padding()
+            .background(Color(red: 14/255, green: 17/255, blue: 22/255))
+            
+            // Map
+            RunMapCard(workout: workout)
+        }
+        .edgesIgnoringSafeArea(.bottom)
+    }
+}
+
 struct RoutePolyline {
     static func decode(_ encodedPath: String) -> [CLLocationCoordinate2D] {
         var coordinates: [CLLocationCoordinate2D] = []
@@ -90,6 +125,7 @@ struct RunMapCard: View {
     let workout: DetailedWorkout
     @State private var region: MKCoordinateRegion
     @State private var mapView: MKMapView?
+    @State private var isFullscreen: Bool = false
     
     init(workout: DetailedWorkout) {
         self.workout = workout
@@ -176,36 +212,44 @@ struct RunMapCard: View {
     }
     
     var body: some View {
-        MapView(region: $region, mapView: $mapView) { map in
-            // Add route polyline if we have coordinates
-            let coordinates = routeCoordinates
-            if !coordinates.isEmpty {
-                // Add the outline polyline first
-                let outlinePolyline = MKPolyline(coordinates: coordinates, count: coordinates.count)
-                outlinePolyline.title = "outline"  // Mark this as the outline
-                map.addOverlay(outlinePolyline)
+        ZStack {
+            MapView(region: $region, mapView: $mapView) { map in
+                // Add route polyline if we have coordinates
+                let coordinates = routeCoordinates
+                if !coordinates.isEmpty {
+                    // Add the outline polyline first
+                    let outlinePolyline = MKPolyline(coordinates: coordinates, count: coordinates.count)
+                    outlinePolyline.title = "outline"
+                    map.addOverlay(outlinePolyline)
+                    
+                    // Add the main orange polyline on top
+                    let mainPolyline = MKPolyline(coordinates: coordinates, count: coordinates.count)
+                    map.addOverlay(mainPolyline)
+                }
                 
-                // Add the main orange polyline on top
-                let mainPolyline = MKPolyline(coordinates: coordinates, count: coordinates.count)
-                map.addOverlay(mainPolyline)
+                // Add start marker
+                let startAnnotation = MKPointAnnotation()
+                startAnnotation.coordinate = startCoordinate
+                startAnnotation.title = "Start"
+                map.addAnnotation(startAnnotation)
                 
-                print("Added polyline with \(coordinates.count) coordinates")
+                // Add end marker
+                let endAnnotation = MKPointAnnotation()
+                endAnnotation.coordinate = endCoordinate
+                endAnnotation.title = "End"
+                map.addAnnotation(endAnnotation)
             }
-            
-            // Add start marker
-            let startAnnotation = MKPointAnnotation()
-            startAnnotation.coordinate = startCoordinate
-            startAnnotation.title = "Start"
-            map.addAnnotation(startAnnotation)
-            
-            // Add end marker
-            let endAnnotation = MKPointAnnotation()
-            endAnnotation.coordinate = endCoordinate
-            endAnnotation.title = "End"
-            map.addAnnotation(endAnnotation)
+            .onTapGesture {
+                isFullscreen = true
+            }
         }
         .onAppear {
             calculateRegion()
+        }
+        .fullScreenCover(isPresented: $isFullscreen) {
+            FullscreenMapView(workout: workout) {
+                isFullscreen = false
+            }
         }
     }
 }
