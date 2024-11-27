@@ -51,8 +51,16 @@ class MapCoordinator: NSObject, MKMapViewDelegate {
     func mapView(_ mapView: MKMapView, rendererFor overlay: MKOverlay) -> MKOverlayRenderer {
         if let polyline = overlay as? MKPolyline {
             let renderer = MKPolylineRenderer(polyline: polyline)
-            renderer.strokeColor = .orange
-            renderer.lineWidth = 4
+            
+            // Check if this is the outline polyline
+            if let isOutline = polyline.title, isOutline == "outline" {
+                renderer.strokeColor = .black
+                renderer.lineWidth = 6  // Slightly wider for the outline
+            } else {
+                renderer.strokeColor = .orange
+                renderer.lineWidth = 4  // Slightly thinner for the main line
+            }
+            
             return renderer
         }
         return MKOverlayRenderer(overlay: overlay)
@@ -172,8 +180,15 @@ struct RunMapCard: View {
             // Add route polyline if we have coordinates
             let coordinates = routeCoordinates
             if !coordinates.isEmpty {
-                let polyline = MKPolyline(coordinates: coordinates, count: coordinates.count)
-                map.addOverlay(polyline)
+                // Add the outline polyline first
+                let outlinePolyline = MKPolyline(coordinates: coordinates, count: coordinates.count)
+                outlinePolyline.title = "outline"  // Mark this as the outline
+                map.addOverlay(outlinePolyline)
+                
+                // Add the main orange polyline on top
+                let mainPolyline = MKPolyline(coordinates: coordinates, count: coordinates.count)
+                map.addOverlay(mainPolyline)
+                
                 print("Added polyline with \(coordinates.count) coordinates")
             }
             
