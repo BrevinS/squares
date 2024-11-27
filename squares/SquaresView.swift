@@ -570,12 +570,6 @@ struct SquaresView: View {
     }
     
     private func resetView() {
-        // Start the card flip animation
-        withAnimation(.easeInOut(duration: 0.5)) {
-            cardRotation = 90
-            cardScale = 0.5
-            cardOpacity = 0
-        }
         
         // After the card flip, start the squares animation
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
@@ -618,11 +612,6 @@ struct SquaresView: View {
             } else {
                 print("Detailed workout already available for ID: \(workout.id)")
             }
-            
-            // Reset animation properties
-            cardRotation = 0
-            cardScale = 1
-            cardOpacity = 1
             
             startRippleEffect(from: index)
         } else {
