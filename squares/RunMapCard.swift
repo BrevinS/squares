@@ -1,8 +1,6 @@
 import SwiftUI
 import MapKit
-import CoreLocation
 
-// Polyline decoder utility
 struct RoutePolyline {
     static func decode(_ encodedPath: String) -> [CLLocationCoordinate2D] {
         var coordinates: [CLLocationCoordinate2D] = []
@@ -49,32 +47,53 @@ struct RoutePolyline {
     }
 }
 
+class MapCoordinator: NSObject, MKMapViewDelegate {
+    func mapView(_ mapView: MKMapView, rendererFor overlay: MKOverlay) -> MKOverlayRenderer {
+        if let polyline = overlay as? MKPolyline {
+            let renderer = MKPolylineRenderer(polyline: polyline)
+            renderer.strokeColor = .orange
+            renderer.lineWidth = 4
+            return renderer
+        }
+        return MKOverlayRenderer(overlay: overlay)
+    }
+    
+    func mapView(_ mapView: MKMapView, viewFor annotation: MKAnnotation) -> MKAnnotationView? {
+        let identifier = "PinAnnotation"
+        var view: MKMarkerAnnotationView
+        
+        if let dequeuedView = mapView.dequeueReusableAnnotationView(withIdentifier: identifier) as? MKMarkerAnnotationView {
+            view = dequeuedView
+        } else {
+            view = MKMarkerAnnotationView(annotation: annotation, reuseIdentifier: identifier)
+        }
+        
+        if annotation.title == "Start" {
+            view.markerTintColor = .green
+        } else {
+            view.markerTintColor = .red
+        }
+        
+        return view
+    }
+}
+
 struct RunMapCard: View {
     let workout: DetailedWorkout
     @State private var region: MKCoordinateRegion
-    
-    // Extract polyline from map string
-    private var polyline: String? {
-        guard let mapString = workout.polyline,
-              let data = mapString.data(using: .utf8),
-              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let summaryPolyline = json["summary_polyline"] as? [String: String],
-              let polylineString = summaryPolyline["S"] else {
-            print("ℹ️ No valid map data available")
-            return nil
-        }
-        print("✅ Successfully extracted polyline: \(polylineString.prefix(50))...")
-        return polylineString
-    }
+    @State private var mapView: MKMapView?
     
     init(workout: DetailedWorkout) {
         self.workout = workout
-        
-        // Initialize with a default region that will be updated in onAppear
         _region = State(initialValue: MKCoordinateRegion(
             center: CLLocationCoordinate2D(latitude: 0, longitude: 0),
             span: MKCoordinateSpan(latitudeDelta: 0.02, longitudeDelta: 0.02)
         ))
+    }
+    
+    private var routeCoordinates: [CLLocationCoordinate2D] {
+        guard let polylineString = workout.polyline else { return [] }
+        return RoutePolyline.decode(polylineString)
     }
     
     private func parseCoordinates(from jsonString: String?) -> CLLocationCoordinate2D {
@@ -91,118 +110,110 @@ struct RunMapCard: View {
         return CLLocationCoordinate2D(latitude: latDouble, longitude: lngDouble)
     }
     
-    var startCoordinate: CLLocationCoordinate2D {
-        return parseCoordinates(from: workout.start_lnglat)
+    private var startCoordinate: CLLocationCoordinate2D {
+        parseCoordinates(from: workout.start_lnglat)
     }
     
-    var endCoordinate: CLLocationCoordinate2D {
-        return parseCoordinates(from: workout.end_lnglat)
+    private var endCoordinate: CLLocationCoordinate2D {
+        parseCoordinates(from: workout.end_lnglat)
     }
     
     private func calculateRegion() {
-        let start = startCoordinate
-        let end = endCoordinate
+        let coordinates = routeCoordinates
         
-        // Only update region if we have valid coordinates
-        guard start.latitude != 0, start.longitude != 0,
-              end.latitude != 0, end.longitude != 0 else {
+        if coordinates.isEmpty {
+            // Fallback to start/end points if no route
+            let start = startCoordinate
+            let end = endCoordinate
+            
+            let minLat = min(start.latitude, end.latitude)
+            let maxLat = max(start.latitude, end.latitude)
+            let minLon = min(start.longitude, end.longitude)
+            let maxLon = max(start.longitude, end.longitude)
+            
+            updateRegion(minLat: minLat, maxLat: maxLat, minLon: minLon, maxLon: maxLon)
             return
         }
         
-        // Calculate the bounding box
-        let minLat = min(start.latitude, end.latitude)
-        let maxLat = max(start.latitude, end.latitude)
-        let minLon = min(start.longitude, end.longitude)
-        let maxLon = max(start.longitude, end.longitude)
+        // Calculate bounds from all route coordinates
+        let minLat = coordinates.map { $0.latitude }.min() ?? 0
+        let maxLat = coordinates.map { $0.latitude }.max() ?? 0
+        let minLon = coordinates.map { $0.longitude }.min() ?? 0
+        let maxLon = coordinates.map { $0.longitude }.max() ?? 0
         
-        // Calculate center
+        updateRegion(minLat: minLat, maxLat: maxLat, minLon: minLon, maxLon: maxLon)
+    }
+    
+    private func updateRegion(minLat: Double, maxLat: Double, minLon: Double, maxLon: Double) {
         let centerLat = (minLat + maxLat) / 2
         let centerLon = (minLon + maxLon) / 2
         
-        // Calculate span with padding
-        let latDelta = (maxLat - minLat) * 1.5 // 50% padding
-        let lonDelta = (maxLon - minLon) * 1.5 // 50% padding
+        // Add padding to the span
+        let latDelta = (maxLat - minLat) * 1.5
+        let lonDelta = (maxLon - minLon) * 1.5
         
         // Ensure minimum zoom level
-        let minDelta = 0.005 // Minimum span to prevent over-zooming
+        let minDelta = 0.005
         let finalLatDelta = max(latDelta, minDelta)
         let finalLonDelta = max(lonDelta, minDelta)
         
-        // Update region with animation
         withAnimation(.easeInOut(duration: 0.5)) {
             region = MKCoordinateRegion(
                 center: CLLocationCoordinate2D(latitude: centerLat, longitude: centerLon),
-                span: MKCoordinateSpan(
-                    latitudeDelta: finalLatDelta,
-                    longitudeDelta: finalLonDelta
-                )
+                span: MKCoordinateSpan(latitudeDelta: finalLatDelta, longitudeDelta: finalLonDelta)
             )
         }
+        
+        mapView?.setRegion(region, animated: true)
     }
     
     var body: some View {
-        Map(coordinateRegion: $region, showsUserLocation: false, annotationItems: [
-            MapPin(coordinate: startCoordinate, title: "Start", color: .green),
-            MapPin(coordinate: endCoordinate, title: "End", color: .red)
-        ]) { pin in
-            MapAnnotation(coordinate: pin.coordinate) {
-                Circle()
-                    .fill(pin.color)
-                    .frame(width: 10, height: 10)
-                    .overlay(
-                        Circle()
-                            .stroke(.white, lineWidth: 2)
-                    )
+        MapView(region: $region, mapView: $mapView) { map in
+            // Add route polyline if we have coordinates
+            let coordinates = routeCoordinates
+            if !coordinates.isEmpty {
+                let polyline = MKPolyline(coordinates: coordinates, count: coordinates.count)
+                map.addOverlay(polyline)
+                print("Added polyline with \(coordinates.count) coordinates")
             }
-        }
-        .overlay(alignment: .center) {
-            if let polylineString = polyline {
-                MapPolylineOverlay(coordinates: RoutePolyline.decode(polylineString))
-            }
+            
+            // Add start marker
+            let startAnnotation = MKPointAnnotation()
+            startAnnotation.coordinate = startCoordinate
+            startAnnotation.title = "Start"
+            map.addAnnotation(startAnnotation)
+            
+            // Add end marker
+            let endAnnotation = MKPointAnnotation()
+            endAnnotation.coordinate = endCoordinate
+            endAnnotation.title = "End"
+            map.addAnnotation(endAnnotation)
         }
         .onAppear {
-            // Set initial region when view appears
             calculateRegion()
         }
     }
 }
 
-struct MapPin: Identifiable {
-    let id = UUID()
-    let coordinate: CLLocationCoordinate2D
-    let title: String
-    let color: Color
-}
-
-struct MapPolylineOverlay: UIViewRepresentable {
-    let coordinates: [CLLocationCoordinate2D]
+struct MapView: UIViewRepresentable {
+    @Binding var region: MKCoordinateRegion
+    @Binding var mapView: MKMapView?
+    let configure: (MKMapView) -> Void
+    
+    func makeCoordinator() -> MapCoordinator {
+        MapCoordinator()
+    }
     
     func makeUIView(context: Context) -> MKMapView {
-        let mapView = MKMapView()
-        mapView.isUserInteractionEnabled = false
-        mapView.delegate = context.coordinator
-        return mapView
+        let map = MKMapView()
+        map.delegate = context.coordinator
+        map.region = region
+        mapView = map
+        configure(map)
+        return map
     }
     
     func updateUIView(_ uiView: MKMapView, context: Context) {
-        uiView.removeOverlays(uiView.overlays)
-        let polyline = MKPolyline(coordinates: coordinates, count: coordinates.count)
-        uiView.addOverlay(polyline)
-    }
-    
-    func makeCoordinator() -> Coordinator {
-        Coordinator()
-    }
-    
-    class Coordinator: NSObject, MKMapViewDelegate {
-        func mapView(_ mapView: MKMapView, rendererFor overlay: MKOverlay) -> MKOverlayRenderer {
-            if let polyline = overlay as? MKPolyline {
-                let renderer = MKPolylineRenderer(polyline: polyline)
-                renderer.strokeColor = .orange
-                renderer.lineWidth = 4
-                return renderer
-            }
-            return MKOverlayRenderer(overlay: overlay)
-        }
+        uiView.region = region
     }
 }
