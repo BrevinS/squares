@@ -830,88 +830,198 @@ struct SquaresView: View {
     }
 }
     
-    struct WorkoutDetailView: View {
-        let localWorkout: LocalWorkout
+struct WorkoutDetailView: View {
+    let localWorkout: LocalWorkout
+    
+    private var timeRange: (start: String, end: String) {
+        guard let startDate = localWorkout.detailedWorkout?.start_date_local,
+              let duration = localWorkout.detailedWorkout?.elapsed_time else {
+            return ("--:-- AM", "--:-- AM")
+        }
+        
+        let endDate = startDate.addingTimeInterval(TimeInterval(duration))
+        let formatter = DateFormatter()
+        formatter.dateFormat = "h:mm a"
+        
+        return (formatter.string(from: startDate), formatter.string(from: endDate))
+    }
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            // Workout Name
+            Text(localWorkout.detailedWorkout?.name ?? "Unnamed Workout")
+                .font(.system(size: 28, weight: .bold))
+                .foregroundColor(.white)
+                .padding(.top, 8)
             
-        var body: some View {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 12) {
-                    if let detailedWorkout = localWorkout.detailedWorkout {
-                        RunMapCard(workout: detailedWorkout)
-                            .frame(height: 200)
-                            .cornerRadius(12)
-                            .padding(.bottom, 8)
-                    }
-                    
-                    Text(localWorkout.detailedWorkout?.name ?? "Unnamed Workout")
-                        .font(.title)
-                        .padding(.bottom, 8)
-                    
-                    Group {
-                        DetailRow(title: "Type", value: localWorkout.detailedWorkout?.type ?? "Unknown")
-                        DetailRow(title: "Duration", value: formatDuration(Int(localWorkout.detailedWorkout?.elapsed_time ?? 0)))
-                        DetailRow(title: "Distance", value: String(format: "%.2f miles", localWorkout.distance / 1609.344))
-                        if let avgSpeed = localWorkout.detailedWorkout?.average_speed {
-                            DetailRow(title: "Average Speed", value: String(format: "%.2f mph", avgSpeed * 2.23694))
-                        }
-                        if let avgHeartRate = localWorkout.detailedWorkout?.average_heartrate, avgHeartRate > 0 {
-                            DetailRow(title: "Average Heart Rate", value: String(format: "%.0f bpm", avgHeartRate))
-                        }
-                        if let maxHeartRate = localWorkout.detailedWorkout?.max_heartrate, maxHeartRate > 0 {
-                            DetailRow(title: "Max Heart Rate", value: "\(maxHeartRate) bpm")
-                        }
-                        DetailRow(title: "Start Time", value: formatDate(localWorkout.detailedWorkout?.start_date ?? Date()))
-                        if let elevationGain = localWorkout.detailedWorkout?.total_elevation_gain {
-                            DetailRow(title: "Elevation Gain", value: String(format: "%.1f ft", elevationGain * 3.28084))
-                        }
-                        if let elevLow = localWorkout.detailedWorkout?.elevation_low, !elevLow.isEmpty {
-                            DetailRow(title: "Elevation Low", value: String(format: "%.1f ft", (Double(elevLow) ?? 0) * 3.28084))
-                        }
-                        if let elevHigh = localWorkout.detailedWorkout?.elevation_high, !elevHigh.isEmpty {
-                            DetailRow(title: "Elevation High", value: String(format: "%.1f ft", (Double(elevHigh) ?? 0) * 3.28084))
-                        }
-                        if let calories = localWorkout.detailedWorkout?.calories {
-                            DetailRow(title: "CALORIES", value: String(format: "%.2f cal", calories))
-                        }
-                    }
-                }
-                .padding()
+            // Map
+            if let detailedWorkout = localWorkout.detailedWorkout {
+                RunMapCard(workout: detailedWorkout)
+                    .frame(height: 200)
+                    .cornerRadius(12)
+            }
+            
+            // Time Range
+            HStack {
+                Text(timeRange.start)
+                Spacer()
+                Text(timeRange.end)
+            }
+            .font(.system(size: 14))
+            .foregroundColor(.gray)
+            
+            // Distance
+            VStack(alignment: .leading, spacing: 4) {
+                Text(String(format: "%.2f", localWorkout.distance / 1609.344))
+                    .font(.system(size: 42, weight: .bold))
+                Text("MILES")
+                    .font(.system(size: 16, weight: .medium))
+                    .opacity(0.7)
             }
             .foregroundColor(.white)
-        }
-
-
-        private func formatDuration(_ seconds: Int) -> String {
-            let hours = seconds / 3600
-            let minutes = (seconds % 3600) / 60
-            let remainingSeconds = seconds % 60
-            return String(format: "%02d:%02d:%02d", hours, minutes, remainingSeconds)
-        }
-
-        private func formatDate(_ date: Date) -> String {
-            let formatter = DateFormatter()
-            formatter.dateStyle = .medium
-            formatter.timeStyle = .short
-            return formatter.string(from: date)
-        }
-    }
-
-    struct DetailRow: View {
-        let title: String
-        let value: String
-        
-        var body: some View {
-            HStack {
-                Text(title)
-                    .font(.headline)
-                    .foregroundColor(.white.opacity(0.8))
+            .padding(.vertical, 8)
+            
+            // Stats Rows with Middle Alignment
+            HStack(alignment: .top) {
+                // Left Column (margin left)
+                VStack(alignment: .leading, spacing: 16) {
+                    // Calories
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "flame.fill")
+                                .foregroundColor(.orange)
+                            Text(String(format: "%.0f", localWorkout.detailedWorkout?.calories ?? 0))
+                                .font(.system(size: 24, weight: .semibold))
+                        }
+                        Text("CALORIES")
+                            .font(.system(size: 12, weight: .medium))
+                            .opacity(0.7)
+                    }
+                    
+                    // Duration
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "clock.fill")
+                                .foregroundColor(.blue)
+                            Text(formatDuration(Int(localWorkout.detailedWorkout?.elapsed_time ?? 0)))
+                                .font(.system(size: 24, weight: .semibold))
+                        }
+                        Text("DURATION")
+                            .font(.system(size: 12, weight: .medium))
+                            .opacity(0.7)
+                    }
+                }
+                
                 Spacer()
-                Text(value)
-                    .font(.body)
+                
+                // Right Column (aligned vertically)
+                VStack(alignment: .leading, spacing: 16) {
+                    // Heart Rate
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "bolt.heart.fill")
+                                .foregroundColor(.red)
+                            if let avgHeartRate = localWorkout.detailedWorkout?.average_heartrate,
+                               avgHeartRate > 0 {
+                                Text(String(format: "%.0f", avgHeartRate))
+                                    .font(.system(size: 24, weight: .semibold))
+                            } else {
+                                Text("--")
+                                    .font(.system(size: 24, weight: .semibold))
+                            }
+                        }
+                        Text("AVG BPM")
+                            .font(.system(size: 12, weight: .medium))
+                            .opacity(0.7)
+                    }
+                    
+                    // Average Mile
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "hare.fill")
+                                .foregroundColor(.purple)
+                            Text(averageMileTime)
+                                .font(.system(size: 24, weight: .semibold))
+                        }
+                        Text("AVG MILE")
+                            .font(.system(size: 12, weight: .medium))
+                            .opacity(0.7)
+                    }
+                }
             }
-            .padding(.vertical, 2)
+            .foregroundColor(.white)
+            .padding(.vertical, 8)
+            
+            // Elevation Gain
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 4) {
+                    Image(systemName: "mountain.2.fill")
+                        .foregroundColor(.gray)
+                    Text(String(format: "%.0f ft", (localWorkout.detailedWorkout?.total_elevation_gain ?? 0) * 3.28084))
+                        .font(.system(size: 24, weight: .semibold))
+                }
+                Text("ELEVATION GAIN")
+                    .font(.system(size: 12, weight: .medium))
+                    .opacity(0.7)
+            }
+            .foregroundColor(.white)
+            .padding(.vertical, 8)
+            
+            Spacer()
+        }
+        .padding()
+        .frame(width: 286, height: 1065)
+        .background(Color(red: 14/255, green: 17/255, blue: 22/255))
+        .overlay(
+            RoundedRectangle(cornerRadius: 0)
+                .stroke(Color(red: 62/255, green: 62/255, blue: 70/255), lineWidth: 2)
+        )
+    }
+    
+    private func formatDuration(_ seconds: Int) -> String {
+        let hours = seconds / 3600
+        let minutes = (seconds % 3600) / 60
+        let remainingSeconds = seconds % 60
+        
+        if hours > 0 {
+            return String(format: "%d:%02d:%02d", hours, minutes, remainingSeconds)
+        } else {
+            return String(format: "%d:%02d", minutes, remainingSeconds)
         }
     }
+    
+    private var averageMileTime: String {
+        guard let elapsedTime = localWorkout.detailedWorkout?.elapsed_time,
+              localWorkout.distance > 0 else {
+            return "--:--"
+        }
+        
+        let milesRun = localWorkout.distance / 1609.344
+        let secondsPerMile = Double(elapsedTime) / milesRun
+        
+        let minutes = Int(secondsPerMile / 60)
+        let seconds = Int(secondsPerMile.truncatingRemainder(dividingBy: 60))
+        
+        return String(format: "%d:%02d", minutes, seconds)
+    }
+}
+
+struct DetailRow: View {
+    let title: String
+    let value: String
+    
+    var body: some View {
+        HStack {
+            Text(title)
+                .font(.headline)
+                .foregroundColor(.white.opacity(0.8))
+            Spacer()
+            Text(value)
+                .font(.body)
+        }
+        .padding(.vertical, 2)
+    }
+}
 
 struct SquaresView_Previews: PreviewProvider {
     static var previews: some View {
