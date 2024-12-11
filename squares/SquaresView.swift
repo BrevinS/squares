@@ -843,8 +843,10 @@ struct WorkoutDetailView: View {
                 .foregroundColor(.white)
                 .padding(.top, 8)
             
-            // Map
-            if let detailedWorkout = localWorkout.detailedWorkout {
+            // Map - only show if valid polyline data exists
+            if let detailedWorkout = localWorkout.detailedWorkout,
+               let polyline = detailedWorkout.polyline,
+               !polyline.isEmpty {
                 RunMapCard(workout: detailedWorkout)
                     .frame(height: 200)
                     .cornerRadius(12)
@@ -859,6 +861,7 @@ struct WorkoutDetailView: View {
             .font(.system(size: 14))
             .foregroundColor(.gray)
             
+            // Rest of the view remains unchanged...
             // Distance
             VStack(alignment: .leading, spacing: 4) {
                 Text(String(format: "%.2f", localWorkout.distance / 1609.344))
