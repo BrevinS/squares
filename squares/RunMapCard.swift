@@ -29,8 +29,8 @@ struct FullscreenMapView: View {
             .padding()
             .background(Color(red: 14/255, green: 17/255, blue: 22/255))
             
-            // Map
-            RunMapCard(workout: workout)
+            // Map - Using RunMapCard but with isFullscreen flag
+            RunMapCard(workout: workout, isFullscreen: true)
         }
         .edgesIgnoringSafeArea(.bottom)
     }
@@ -123,12 +123,14 @@ class MapCoordinator: NSObject, MKMapViewDelegate {
 
 struct RunMapCard: View {
     let workout: DetailedWorkout
+    let isFullscreen: Bool
     @State private var region: MKCoordinateRegion
     @State private var mapView: MKMapView?
-    @State private var isFullscreen: Bool = false
+    @State private var isExpandingToFullscreen: Bool = false
     
-    init(workout: DetailedWorkout) {
+    init(workout: DetailedWorkout, isFullscreen: Bool = false) {
         self.workout = workout
+        self.isFullscreen = isFullscreen
         _region = State(initialValue: MKCoordinateRegion(
             center: CLLocationCoordinate2D(latitude: 0, longitude: 0),
             span: MKCoordinateSpan(latitudeDelta: 0.02, longitudeDelta: 0.02)
@@ -239,17 +241,32 @@ struct RunMapCard: View {
                 endAnnotation.title = "End"
                 map.addAnnotation(endAnnotation)
             }
-            .onTapGesture {
-                isFullscreen = true
+            // Only add tap gesture if not in fullscreen mode
+            .if(!isFullscreen) { view in
+                view.onTapGesture {
+                    isExpandingToFullscreen = true
+                }
             }
         }
         .onAppear {
             calculateRegion()
         }
-        .fullScreenCover(isPresented: $isFullscreen) {
+        // Only show fullscreen sheet if not already in fullscreen mode
+        .fullScreenCover(isPresented: $isExpandingToFullscreen) {
             FullscreenMapView(workout: workout) {
-                isFullscreen = false
+                isExpandingToFullscreen = false
             }
+        }
+    }
+}
+
+// Helper extension to conditionally apply modifiers
+extension View {
+    @ViewBuilder func `if`<Content: View>(_ condition: Bool, transform: (Self) -> Content) -> some View {
+        if condition {
+            transform(self)
+        } else {
+            self
         }
     }
 }
