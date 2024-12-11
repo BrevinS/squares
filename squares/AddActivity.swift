@@ -291,95 +291,128 @@ struct AddActivity: View {
     
     var body: some View {
         VStack(spacing: 20) {
-            Text("Add Activity")
+            Text("Settings")
                 .font(.largeTitle)
                 .foregroundColor(.orange)
             
-            if authManager.isAuthenticated {
-                Text("Authentication successful!")
-                    .foregroundColor(.green)
-                Text("Athlete ID: \(authManager.athleteId ?? 0)")
-                    .font(.headline)
-                    .foregroundColor(.white)
-                    .padding()
-                    .background(Color.blue)
-                    .cornerRadius(10)
-                
-                Button(action: {
-                    refreshWorkouts()
-                }) {
-                    HStack {
-                        Image(systemName: "arrow.clockwise")
-                        Text("Refresh Workouts")
-                    }
-                    .padding()
-                    .background(Color.orange)
-                    .foregroundColor(.white)
-                    .cornerRadius(8)
-                }
-                .disabled(isRefreshing)
-                
-                if isRefreshing {
-                    ProgressView()
-                        .progressViewStyle(CircularProgressViewStyle(tint: .orange))
-                        .scaleEffect(1.5)
-                } else if authManager.workoutSummaries.isEmpty {
-                    Text("No workouts found")
-                        .foregroundColor(.gray)
-                } else {
-                    List(authManager.workoutSummaries) { summary in
-                        VStack(alignment: .leading) {
-                            Text("Date: \(formatDate(summary.date))")
-                            Text("Distance: \(formatDistance(summary.distance)) mi")
+            List {
+                Section("Account Connections") {
+                    VStack(alignment: .leading, spacing: 12) {
+                        // Strava Connection Status
+                        HStack {
+                            Text("Strava")
+                                .font(.headline)
+                                .foregroundColor(.white)
+                            Spacer()
+                            // Connection Status Indicator
+                            HStack(spacing: 4) {
+                                Circle()
+                                    .fill(authManager.isAuthenticated ? Color.green : Color.red)
+                                    .frame(width: 8, height: 8)
+                                Text(authManager.isAuthenticated ? "Connected" : "Disconnected")
+                                    .font(.caption)
+                                    .foregroundColor(authManager.isAuthenticated ? .green : .red)
+                            }
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(authManager.isAuthenticated ? Color.green.opacity(0.2) : Color.red.opacity(0.2))
+                            )
+                        }
+                        
+                        if authManager.isAuthenticated {
+                            // Show connected status and controls
+                            VStack(alignment: .leading, spacing: 12) {
+                                Text("Athlete ID: \(authManager.athleteId ?? 0)")
+                                    .font(.subheadline)
+                                    .foregroundColor(.gray)
+                                
+                                HStack(spacing: 12) {
+                                    // Refresh Button
+                                    Button(action: {
+                                        refreshWorkouts()
+                                    }) {
+                                        HStack {
+                                            Image(systemName: "arrow.clockwise")
+                                                .rotationEffect(.degrees(isRefreshing ? 360 : 0))
+                                            Text("Refresh Data")
+                                        }
+                                        .padding(.horizontal, 12)
+                                        .padding(.vertical, 8)
+                                        .background(Color.orange)
+                                        .foregroundColor(.white)
+                                        .cornerRadius(8)
+                                    }
+                                    .disabled(isRefreshing)
+                                    
+                                    // Logout Button
+                                    Button(action: {
+                                        authManager.logout()
+                                    }) {
+                                        Text("Disconnect")
+                                            .padding(.horizontal, 12)
+                                            .padding(.vertical, 8)
+                                            .background(Color.red.opacity(0.2))
+                                            .foregroundColor(.red)
+                                            .cornerRadius(8)
+                                    }
+                                }
+                            }
+                        } else {
+                            // Show connect button
+                            Button(action: {
+                                authManager.authenticate()
+                            }) {
+                                Text("Connect with Strava")
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 12)
+                                    .background(Color.orange)
+                                    .foregroundColor(.white)
+                                    .cornerRadius(8)
+                            }
+                            .padding(.top, 8)
                         }
                     }
+                    .padding(.vertical, 8)
                 }
                 
-                Button("Logout") {
-                    authManager.logout()
+                Section("App Preferences") {
+                    Text("More settings coming soon")
+                        .foregroundColor(.gray)
                 }
-                .padding()
-                .background(Color.red)
-                .foregroundColor(.white)
-                .cornerRadius(8)
-            } else {
-                Button("Connect with Strava") {
-                    authManager.authenticate()
-                }
-                .padding()
-                .background(Color.blue)
-                .foregroundColor(.white)
-                .cornerRadius(8)
             }
+            .listStyle(InsetGroupedListStyle())
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color(red: 14 / 255, green: 17 / 255, blue: 22 / 255))
+        .background(Color(red: 14/255, green: 17/255, blue: 22/255))
     }
     
     private func refreshWorkouts() {
         isRefreshing = true
         authManager.fetchWorkoutSummaries { success in
             isRefreshing = false
-            if !success {
-                // Handle error, maybe show an alert
-            }
         }
     }
+}
+
+struct ConnectionStatusView: View {
+    let isConnected: Bool
     
-    func formatDate(_ dateString: String) -> String {
-        let inputFormatter = ISO8601DateFormatter()
-        inputFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        
-        if let date = inputFormatter.date(from: dateString) {
-            let outputFormatter = DateFormatter()
-            outputFormatter.dateFormat = "MMM d, yyyy HH:mm"
-            return outputFormatter.string(from: date)
+    var body: some View {
+        HStack(spacing: 4) {
+            Circle()
+                .fill(isConnected ? Color.green : Color.red)
+                .frame(width: 8, height: 8)
+            Text(isConnected ? "Connected" : "Disconnected")
+                .font(.caption)
+                .foregroundColor(isConnected ? .green : .red)
         }
-        return dateString
-    }
-    
-    func formatDistance(_ distance: Double) -> String {
-        return String(format: "%.2f", distance / 1609.344) // Convert meters to miles
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(isConnected ? Color.green.opacity(0.2) : Color.red.opacity(0.2))
+        )
     }
 }
 

@@ -96,7 +96,7 @@ struct ContentView: View {
                         selectedTab = 3
                     }) {
                         VStack {
-                            Image(systemName: "folder.badge.plus")
+                            Image(systemName: "gearshape.fill")
                                 .font(.system(size: 30))
                                 .foregroundColor(Color(.systemOrange))
                             if selectedTab == 3 {

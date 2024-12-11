@@ -855,11 +855,21 @@ struct WorkoutDetailView: View {
             // Time Range
             HStack {
                 Text(timeRange.start)
+                    .font(.system(size: 14))
+                    .foregroundColor(.gray)
+                
                 Spacer()
+                
+                Image(systemName: "clock.fill")
+                    .font(.system(size: 12))
+                    .foregroundColor(.gray)
+                
+                Spacer()
+                
                 Text(timeRange.end)
+                    .font(.system(size: 14))
+                    .foregroundColor(.gray)
             }
-            .font(.system(size: 14))
-            .foregroundColor(.gray)
             
             // Rest of the view remains unchanged...
             // Distance
