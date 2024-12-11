@@ -108,6 +108,42 @@ class StravaAuthManager: ObservableObject {
         clearLocalWorkouts()
     }
     
+    private func cleanupOldWorkouts() {
+        let context = PersistenceController.shared.container.viewContext
+        let calendar = Calendar.current
+        
+        // Calculate the cutoff date (182 days ago)
+        guard let cutoffDate = calendar.date(byAdding: .day, value: -182, to: Date()) else {
+            print("Failed to calculate cutoff date")
+            return
+        }
+        
+        // Create fetch request for old workouts
+        let fetchRequest: NSFetchRequest<LocalWorkout> = LocalWorkout.fetchRequest()
+        fetchRequest.predicate = NSPredicate(format: "date < %@ AND isFavorite == NO", cutoffDate as NSDate)
+        
+        do {
+            let oldWorkouts = try context.fetch(fetchRequest)
+            print("Found \(oldWorkouts.count) workouts older than 182 days to remove")
+            
+            // Remove old workouts
+            for workout in oldWorkouts {
+                if let date = workout.date {
+                    print("Removing workout from \(date)")
+                }
+                context.delete(workout)
+            }
+            
+            // Save context if there were any deletions
+            if !oldWorkouts.isEmpty {
+                try context.save()
+                print("Successfully removed old workouts")
+            }
+        } catch {
+            print("Error cleaning up old workouts: \(error)")
+        }
+    }
+    
     func fetchWorkoutSummaries(completion: @escaping (Bool) -> Void) {
         guard let athleteId = self.athleteId else {
             print("No athlete ID available")
@@ -124,7 +160,10 @@ class StravaAuthManager: ObservableObject {
         
         print("Fetching workouts from URL: \(urlString)")
         
-        URLSession.shared.dataTask(with: url) { data, response, error in
+        // Clean up old workouts before fetching new ones
+        cleanupOldWorkouts()
+        
+        URLSession.shared.dataTask(with: url) { [weak self] data, response, error in
             if let error = error {
                 print("Error fetching workout summaries: \(error)")
                 DispatchQueue.main.async {
@@ -142,16 +181,11 @@ class StravaAuthManager: ObservableObject {
             }
             
             do {
-                // Print raw JSON for debugging
-                if let jsonString = String(data: data, encoding: .utf8) {
-                    print("Raw JSON response: \(jsonString)")
-                }
-                
                 let decodedResponse = try JSONDecoder().decode(WorkoutsResponse.self, from: data)
                 DispatchQueue.main.async {
-                    let newWorkouts = self.updateWorkoutSummaries(decodedResponse.workouts)
-                    print("Decoded \(decodedResponse.workouts.count) workout summaries, \(newWorkouts.count) new or updated")
-                    self.saveWorkoutsLocally(newWorkouts)
+                    let newWorkouts = self?.updateWorkoutSummaries(decodedResponse.workouts)
+                    print("Decoded \(decodedResponse.workouts.count) workout summaries, \(newWorkouts?.count ?? 0) new or updated")
+                    self?.saveWorkoutsLocally(newWorkouts ?? [])
                     completion(true)
                 }
             } catch {
@@ -211,62 +245,39 @@ class StravaAuthManager: ObservableObject {
     
     private func saveWorkoutsLocally(_ workouts: [WorkoutSummary]) {
         let context = PersistenceController.shared.container.viewContext
-        var newWorkoutsCount = 0
-        var updatedWorkoutsCount = 0
-        var unchangedWorkoutsCount = 0
         
-        for workout in workouts {
-            let fetchRequest: NSFetchRequest<LocalWorkout> = LocalWorkout.fetchRequest()
-            fetchRequest.predicate = NSPredicate(format: "id == %lld", workout.id)
+        // Fetch existing workouts to check for updates
+        let fetchRequest: NSFetchRequest<LocalWorkout> = LocalWorkout.fetchRequest()
+        
+        do {
+            let existingWorkouts = try context.fetch(fetchRequest)
+            let existingIds = Set(existingWorkouts.map { $0.id })
             
-            do {
-                let results = try context.fetch(fetchRequest)
-                if let existingWorkout = results.first {
-                    // Workout exists, check if it needs updating
-                    if existingWorkout.distance != workout.distance ||
-                       existingWorkout.date != ISO8601DateFormatter().date(from: workout.date) ||
-                       existingWorkout.type != workout.type {
-                        existingWorkout.distance = workout.distance
+            for workout in workouts {
+                if existingIds.contains(workout.id) {
+                    // Update existing workout
+                    if let existingWorkout = existingWorkouts.first(where: { $0.id == workout.id }) {
                         existingWorkout.date = ISO8601DateFormatter().date(from: workout.date)
+                        existingWorkout.distance = workout.distance
                         existingWorkout.type = workout.type
-                        updatedWorkoutsCount += 1
-                        print("Updated existing workout: ID \(workout.id)")
-                    } else {
-                        unchangedWorkoutsCount += 1
-                        print("Workout found on device, no update needed: ID \(workout.id)")
                     }
                 } else {
                     // Create new workout
-                    let localWorkout = LocalWorkout(context: context)
-                    localWorkout.id = workout.id
-                    localWorkout.distance = workout.distance
-                    localWorkout.date = ISO8601DateFormatter().date(from: workout.date)
-                    localWorkout.type = workout.type
-                    newWorkoutsCount += 1
-                    print("Created new workout: ID \(workout.id), Type \(workout.type)")
+                    let newWorkout = LocalWorkout(context: context)
+                    newWorkout.id = workout.id
+                    newWorkout.date = ISO8601DateFormatter().date(from: workout.date)
+                    newWorkout.distance = workout.distance
+                    newWorkout.type = workout.type
+                    // Add isFavorite property (defaults to false)
+                    newWorkout.isFavorite = false
                 }
-            } catch {
-                print("Error processing workout ID \(workout.id): \(error)")
             }
-        }
-        
-        do {
-            if context.hasChanges {
-                try context.save()
-                print("Core Data context saved successfully")
-            } else {
-                print("No changes to save in Core Data context")
-            }
-            print("Summary: \(newWorkoutsCount) new, \(updatedWorkoutsCount) updated, \(unchangedWorkoutsCount) unchanged")
             
-            // Verify all workouts after saving
-            let allWorkouts = try context.fetch(LocalWorkout.fetchRequest())
-            print("\nFinal verification - All workouts in Core Data:")
-            for workout in allWorkouts {
-                print("ID: \(workout.id), Type: \(workout.type ?? "nil"), Date: \(workout.date?.description ?? "nil")")
-            }
+            try context.save()
+            print("Successfully saved/updated workouts")
+            
         } catch {
-            print("Failed to save workouts locally: \(error)")
+            print("Error saving workouts locally: \(error)")
         }
     }
     
@@ -285,9 +296,51 @@ class StravaAuthManager: ObservableObject {
     }
 }
 
+struct FavoriteWorkoutRow: View {
+    let workout: LocalWorkout
+    @Environment(\.managedObjectContext) private var viewContext
+    @State private var showingDetail = false
+    
+    var body: some View {
+        Button(action: { showingDetail = true }) {
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(workout.detailedWorkout?.name ?? "Unnamed Workout")
+                        .foregroundColor(.white)
+                    if let date = workout.date {
+                        Text(formatDate(date))
+                            .font(.caption)
+                            .foregroundColor(.gray)
+                    }
+                }
+                
+                Spacer()
+                
+                Text(String(format: "%.1f mi", workout.distance / 1609.344))
+                    .foregroundColor(.orange)
+            }
+            .padding(.vertical, 8)
+        }
+        .sheet(isPresented: $showingDetail) {
+            WorkoutDetailView(localWorkout: workout)
+        }
+    }
+    
+    private func formatDate(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMM d, yyyy"
+        return formatter.string(from: date)
+    }
+}
+
 struct AddActivity: View {
     @EnvironmentObject var authManager: StravaAuthManager
     @State private var isRefreshing = false
+    @FetchRequest(
+        entity: LocalWorkout.entity(),
+        sortDescriptors: [NSSortDescriptor(keyPath: \LocalWorkout.date, ascending: false)],
+        predicate: NSPredicate(format: "isFavorite == YES")
+    ) private var favoriteWorkouts: FetchedResults<LocalWorkout>
     
     var body: some View {
         VStack(spacing: 20) {
@@ -375,6 +428,23 @@ struct AddActivity: View {
                         }
                     }
                     .padding(.vertical, 8)
+                }
+                
+                Section(
+                    header: Text("Favorite Workouts")
+                        .foregroundColor(.white),
+                    footer: Text("Favorite workouts are stored permanently on your device")
+                        .foregroundColor(.gray)
+                ) {
+                    if favoriteWorkouts.isEmpty {
+                        Text("No favorite workouts")
+                            .foregroundColor(.gray)
+                            .italic()
+                    } else {
+                        ForEach(favoriteWorkouts, id: \.id) { workout in
+                            FavoriteWorkoutRow(workout: workout)
+                        }
+                    }
                 }
                 
                 Section("App Preferences") {

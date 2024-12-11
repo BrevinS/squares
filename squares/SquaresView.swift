@@ -821,6 +821,13 @@ struct SquaresView: View {
     
 struct WorkoutDetailView: View {
     let localWorkout: LocalWorkout
+    @Environment(\.managedObjectContext) private var viewContext
+    @State private var isFavorite: Bool
+    
+    init(localWorkout: LocalWorkout) {
+        self.localWorkout = localWorkout
+        self._isFavorite = State(initialValue: localWorkout.isFavorite)
+    }
     
     private var timeRange: (start: String, end: String) {
         guard let startDate = localWorkout.detailedWorkout?.start_date_local,
@@ -838,10 +845,20 @@ struct WorkoutDetailView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
             // Workout Name
-            Text(localWorkout.detailedWorkout?.name ?? "Unnamed Workout")
-                .font(.system(size: 28, weight: .bold))
-                .foregroundColor(.white)
-                .padding(.top, 8)
+            HStack {
+                Text(localWorkout.detailedWorkout?.name ?? "Unnamed Workout")
+                    .font(.system(size: 28, weight: .bold))
+                    .foregroundColor(.white)
+                
+                Spacer()
+                
+                Button(action: toggleFavorite) {
+                    Image(systemName: isFavorite ? "star.fill" : "star")
+                        .font(.system(size: 24))
+                        .foregroundColor(isFavorite ? .yellow : .gray)
+                }
+            }
+            .padding(.top, 8)
             
             // Map - only show if valid polyline data exists
             if let detailedWorkout = localWorkout.detailedWorkout,
@@ -978,6 +995,17 @@ struct WorkoutDetailView: View {
             RoundedRectangle(cornerRadius: 0)
                 .stroke(Color(red: 62/255, green: 62/255, blue: 70/255), lineWidth: 2)
         )
+    }
+    
+    private func toggleFavorite() {
+        localWorkout.isFavorite.toggle()
+        isFavorite = localWorkout.isFavorite
+        
+        do {
+            try viewContext.save()
+        } catch {
+            print("Error saving favorite status: \(error)")
+        }
     }
     
     private func formatDuration(_ seconds: Int) -> String {
