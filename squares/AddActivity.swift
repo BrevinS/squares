@@ -80,7 +80,7 @@ class StravaAuthManager: ObservableObject {
         session.start()
     }
     
-    public func handleCallback(url: URL) {
+    func handleCallback(url: URL) {
         guard let components = URLComponents(url: url, resolvingAgainstBaseURL: true),
               let code = components.queryItems?.first(where: { $0.name == "code" })?.value,
               let athleteIdString = components.queryItems?.first(where: { $0.name == "athlete_id" })?.value,
@@ -92,6 +92,37 @@ class StravaAuthManager: ObservableObject {
         self.storeAthleteId(athleteId)
         self.isAuthenticated = true
         print("Authentication successful. Athlete ID: \(athleteId)")
+        
+        // Create Strava Running filter tag
+        createStravaRunningFilter()
+    }
+    
+    private func createStravaRunningFilter() {
+        let context = PersistenceController.shared.container.viewContext
+        
+        // Check if Strava Running filter already exists
+        let fetchRequest: NSFetchRequest<Habit> = Habit.fetchRequest()
+        fetchRequest.predicate = NSPredicate(format: "name == %@", "Running (Strava)")
+        
+        do {
+            let existingHabits = try context.fetch(fetchRequest)
+            if existingHabits.isEmpty {
+                // Create new Strava Running filter
+                let stravaFilter = Habit(context: context)
+                stravaFilter.id = UUID()
+                stravaFilter.name = "Running (Strava)"
+                stravaFilter.colorHex = "#FC4C02" // Strava orange color
+                stravaFilter.isBinary = false
+                stravaFilter.hasNotes = false
+                stravaFilter.isDefaultHabit = false
+                stravaFilter.createdAt = Date()
+                
+                try context.save()
+                print("Created Strava Running filter")
+            }
+        } catch {
+            print("Error creating Strava Running filter: \(error)")
+        }
     }
     
     private func storeAthleteId(_ athleteId: Int64) {
