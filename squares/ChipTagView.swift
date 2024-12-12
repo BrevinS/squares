@@ -18,6 +18,8 @@ enum WorkoutColors {
 
 struct SubjectFilterBar: View {
     @Binding var selectedTypes: Set<String>
+    @Binding var selectedHabitName: String?
+    
     @FetchRequest(
         entity: Habit.entity(),
         sortDescriptors: [NSSortDescriptor(keyPath: \Habit.createdAt, ascending: true)]
@@ -31,7 +33,8 @@ struct SubjectFilterBar: View {
                         FilterChipView(
                             type: name,
                             color: Color(hex: habit.colorHex ?? "#808080") ?? .gray,
-                            isSelected: selectedTypes.contains(name)
+                            isSelected: selectedTypes.contains(name),
+                            isDefault: habit.isDefaultHabit
                         ) {
                             toggleType(name)
                         }
@@ -42,13 +45,29 @@ struct SubjectFilterBar: View {
             .padding(.vertical, 8)
         }
         .background(Color(red: 14/255, green: 17/255, blue: 22/255))
+        .onAppear {
+            if selectedTypes.isEmpty {
+                selectDefaultHabit()
+            }
+        }
     }
     
     private func toggleType(_ type: String) {
         if selectedTypes.contains(type) {
-            selectedTypes.remove(type)
+            selectedTypes.removeAll()
+            selectedHabitName = nil
+            selectDefaultHabit()
         } else {
-            selectedTypes.insert(type)
+            selectedTypes = [type]
+            selectedHabitName = type
+        }
+    }
+    
+    private func selectDefaultHabit() {
+        if let defaultHabit = habits.first(where: { $0.isDefaultHabit }),
+           let name = defaultHabit.name {
+            selectedTypes = [name]
+            selectedHabitName = name
         }
     }
 }
@@ -57,6 +76,7 @@ struct FilterChipView: View {
     let type: String
     let color: Color
     let isSelected: Bool
+    let isDefault: Bool
     let onTap: () -> Void
     
     var body: some View {
@@ -67,6 +87,11 @@ struct FilterChipView: View {
                     .frame(width: 8, height: 8)
                 Text(type)
                     .font(.subheadline)
+                if isDefault {
+                    Image(systemName: "star.fill")
+                        .font(.system(size: 8))
+                        .foregroundColor(color)
+                }
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 6)

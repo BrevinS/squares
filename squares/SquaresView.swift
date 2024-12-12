@@ -74,9 +74,11 @@ struct SquaresView: View {
     
     // Initialize subjects with defaults
     @State private var selectedHabitNames: Set<String> = []
+    @State private var selectedHabitName: String? = nil
     
-  
-    
+    @State private var selectedHabitEntry: HabitEntry?
+    @State private var showHabitNote = false
+
     private var gridWidth: CGFloat {
         CGFloat(columns) * squareSize + CGFloat(columns - 1) * squareSpacing
     }
@@ -121,8 +123,11 @@ struct SquaresView: View {
                         .background(Color(red: 14/255, green: 17/255, blue: 22/255))
                         
                         if hasHabits {
-                            SubjectFilterBar(selectedTypes: $selectedTypes)
-                                .padding(.bottom, 10)
+                            SubjectFilterBar(
+                                selectedTypes: $selectedTypes,
+                                selectedHabitName: $selectedHabitName  // Add this binding
+                            )
+                            .padding(.bottom, 10)
                         }
                         
                         Color.clear.frame(height: 1).id("top")
@@ -228,6 +233,7 @@ struct SquaresView: View {
                                                     isExpanded: expandedSquares.contains(index) || isFullyExpanded,
                                                     workout: workoutFor(date: calculateDate(for: index)),
                                                     animationDelay: calculateAnimationDelay(for: index),
+                                                    selectedHabitName: selectedHabitName,
                                                     onTap: { onSquareTap(date: calculateDate(for: index), index: index) }
                                                 )
                                             }
@@ -269,13 +275,6 @@ struct SquaresView: View {
                 }
             }
             .background(Color(red: 14 / 255, green: 17 / 255, blue: 22 / 255))
-            .alert(isPresented: $showAlert) {
-                Alert(
-                    title: Text("Date: \(formattedDate(selectedDate))"),
-                    message: Text("No workout data available for this date"),
-                    dismissButton: .default(Text("OK"))
-                )
-            }
             .onChange(of: shouldScrollToTop) { oldValue, newValue in
                 if newValue {
                     withAnimation {
@@ -286,6 +285,13 @@ struct SquaresView: View {
             }
             .onShake {
                 resetView()
+            }
+            .sheet(isPresented: $showHabitNote) {
+                if let entry = selectedHabitEntry {
+                    HabitNoteView(habitEntry: entry) {
+                        showHabitNote = false
+                    }
+                }
             }
         }
         
@@ -382,8 +388,6 @@ struct SquaresView: View {
             ]
         )
     }
-    
-    
 
     private var workoutsRequest: FetchRequest<LocalWorkout> {
         guard let workoutEntity = NSEntityDescription.entity(forEntityName: "LocalWorkout", in: viewContext) else {
@@ -435,14 +439,10 @@ struct SquaresView: View {
         let dayStart = calendar.startOfDay(for: date)
         let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart)!
         
-        // Find any Run workout that falls within this day
-        let workout = workouts.first { workout in
-            guard let workoutDate = workout.date,
-                  let workoutType = workout.type else { return false }
-            return workoutDate >= dayStart && workoutDate < dayEnd && workoutType == "Run"
+        return workouts.first { workout in
+            guard let workoutDate = workout.date else { return false }
+            return workoutDate >= dayStart && workoutDate < dayEnd
         }
-        
-        return workout
     }
     
     private var settingsButton: some View {
@@ -603,7 +603,12 @@ struct SquaresView: View {
         selectedDate = date
         selectedSquareIndex = index
         animationOrigin = index
+
+        let calendar = Calendar.current
+        let startOfDay = calendar.startOfDay(for: date)
+        let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay)!
         
+        // Handle workouts
         if let workout = workoutFor(date: date) {
             selectedLocalWorkout = workout
             if workout.detailedWorkout == nil {
@@ -612,10 +617,29 @@ struct SquaresView: View {
             } else {
                 print("Detailed workout already available for ID: \(workout.id)")
             }
-            
             startRippleEffect(from: index)
-        } else {
-            showAlert = true
+            return
+        }
+        
+        // Handle habits with notes
+        let fetchRequest: NSFetchRequest<HabitEntry> = HabitEntry.fetchRequest()
+        fetchRequest.predicate = NSPredicate(
+            format: "date >= %@ AND date < %@ AND habit.name == %@ AND completed == YES",
+            startOfDay as NSDate,
+            endOfDay as NSDate,
+            selectedHabitName ?? ""
+        )
+        
+        do {
+            let entries = try viewContext.fetch(fetchRequest)
+            if let entry = entries.first {
+                if entry.habit?.hasNotes == true {
+                    selectedHabitEntry = entry
+                    showHabitNote = true
+                }
+            }
+        } catch {
+            print("Error fetching habit entry: \(error)")
         }
     }
     
