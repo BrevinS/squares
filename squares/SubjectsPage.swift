@@ -46,6 +46,19 @@ class HabitsViewModel: ObservableObject {
             print("❌ Error saving habit: \(error)")
         }
     }
+    
+    func updateHabit(_ habit: Habit, name: String, color: Color) {
+        habit.name = name
+        habit.colorHex = color.toHex()
+        
+        do {
+            try viewContext.save()
+            // Refresh the habits list to trigger UI updates
+            fetchHabits()
+        } catch {
+            print("❌ Error updating habit: \(error)")
+        }
+    }
 }
 
 struct SubjectsPage: View {
@@ -98,7 +111,7 @@ struct SubjectsPage: View {
     private var habitList: some View {
         List {
             ForEach(viewModel.habits, id: \.id) { habit in
-                HabitRowView(habit: habit)
+                HabitRowView(habit: habit, viewModel: viewModel)
             }
             .onDelete(perform: deleteHabits)
         }
@@ -135,41 +148,70 @@ struct HabitDetailView: View {
     let habit: Habit
     @Environment(\.managedObjectContext) private var viewContext
     @Environment(\.dismiss) private var dismiss
+    @ObservedObject var viewModel: HabitsViewModel
     @State private var showingAddEntry = false
     @State private var noteText = ""
     @State private var selectedDate = Date()
     @State private var isCompleted = false
+    @State private var isEditing = false
+    @State private var editedName: String = ""
+    @State private var editedColor: Color = .gray
+    @State private var showingDeleteAlert = false
     
     // Fetch entries for this habit
     @FetchRequest private var entries: FetchedResults<HabitEntry>
     
-    init(habit: Habit) {
+    init(habit: Habit, viewModel: HabitsViewModel) {
         self.habit = habit
-        // Initialize the fetch request with a predicate for this habit
+        self.viewModel = viewModel
         _entries = FetchRequest(
             entity: HabitEntry.entity(),
             sortDescriptors: [NSSortDescriptor(keyPath: \HabitEntry.date, ascending: false)],
             predicate: NSPredicate(format: "habit == %@", habit)
         )
+        _editedName = State(initialValue: habit.name ?? "")
+        _editedColor = State(initialValue: Color(hex: habit.colorHex ?? "#808080") ?? .gray)
     }
     
     var body: some View {
         List {
             Section {
-                HStack {
-                    Circle()
-                        .fill(Color(hex: habit.colorHex ?? "#808080") ?? .gray)
-                        .frame(width: 20, height: 20)
-                    
-                    VStack(alignment: .leading) {
-                        Text(habit.name ?? "Unnamed Habit")
-                            .font(.title2)
-                            .foregroundColor(Color(hex: habit.colorHex ?? "#808080") ?? .gray)
-                        Text(habit.isBinary ? "Done/Not Done" : "With Notes")
-                            .font(.caption)
-                            .foregroundColor(.gray)
+                VStack(spacing: 16) {
+                    HStack {
+                        Circle()
+                            .fill(editedColor)
+                            .frame(width: 20, height: 20)
+                        
+                        TextField("Habit Name", text: $editedName)
+                            .textFieldStyle(RoundedBorderTextFieldStyle())
+                            .foregroundColor(editedColor)
                     }
+                    
+                    ColorPicker("Habit Color", selection: $editedColor)
+                    
+                    if editedName != habit.name || editedColor != Color(hex: habit.colorHex ?? "") {
+                        Button(action: saveHabitChanges) {
+                            HStack {
+                                Image(systemName: "checkmark.circle.fill")
+                                Text("Update Habit")
+                            }
+                        }
+                        .frame(maxWidth: .infinity)
+                        .buttonStyle(.borderedProminent)
+                        .tint(editedColor)
+                    }
+                    
+                    Button(action: { showingDeleteAlert = true }) {
+                        HStack {
+                            Image(systemName: "trash")
+                            Text("Delete Habit")
+                        }
+                        .foregroundColor(.red)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .buttonStyle(.bordered)
                 }
+                .padding(.vertical, 8)
             }
             
             Section("Add New Entry") {
@@ -204,6 +246,58 @@ struct HabitDetailView: View {
             }
         }
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Menu {
+                    Button(action: {
+                        isEditing.toggle()
+                        if !isEditing {
+                            saveHabitChanges()
+                        }
+                    }) {
+                        Label(isEditing ? "Save" : "Edit", systemImage: isEditing ? "checkmark" : "pencil")
+                    }
+                    
+                    Button(role: .destructive, action: {
+                        showingDeleteAlert = true
+                    }) {
+                        Label("Delete Habit", systemImage: "trash")
+                    }
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                }
+            }
+        }
+        .alert("Delete Habit", isPresented: $showingDeleteAlert) {
+            Button("Cancel", role: .cancel) { }
+            Button("Delete", role: .destructive) {
+                deleteHabit()
+            }
+        } message: {
+            Text("Are you sure you want to delete this habit? This will also delete all associated entries and cannot be undone.")
+        }
+    }
+    
+    private func saveHabitChanges() {
+        viewModel.updateHabit(habit, name: editedName, color: editedColor)
+    }
+    
+    private func deleteHabit() {
+        // First delete all associated entries
+        for entry in entries {
+            viewContext.delete(entry)
+        }
+        
+        // Then delete the habit itself
+        viewContext.delete(habit)
+        
+        // Save changes
+        do {
+            try viewContext.save()
+            dismiss()
+        } catch {
+            print("Error deleting habit: \(error)")
+        }
     }
     
     private func addEntry() {
@@ -317,10 +411,11 @@ extension Color {
 }
 
 struct HabitRowView: View {
-    let habit: Habit
+    @ObservedObject var habit: Habit
+    @ObservedObject var viewModel: HabitsViewModel
     
     var body: some View {
-        NavigationLink(destination: HabitDetailView(habit: habit)) {
+        NavigationLink(destination: HabitDetailView(habit: habit, viewModel: viewModel)) {
             HStack {
                 Circle()
                     .fill(Color(hex: habit.colorHex ?? "#808080") ?? .gray)

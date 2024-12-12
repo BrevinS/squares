@@ -120,7 +120,6 @@
 		1E49FFC22C93845F00BB140C /* squares */ = {
 			isa = PBXGroup;
 			children = (
-				213E54912D0A8321003F2E5F /* HabitNoteView.swift */,
 				1E5B9E122CA9834C00B60AD5 /* Info.plist */,
 				1E49FFC32C93845F00BB140C /* squaresApp.swift */,
 				1E49FFC52C93845F00BB140C /* ContentView.swift */,
@@ -129,6 +128,7 @@
 				1E8B3FE92C93964800A9BF3F /* SquaresView.swift */,
 				1EEAE0F92C94A0B900497F8F /* SquareView.swift */,
 				2181E17F2CF5A05C00806A91 /* RunMapCard.swift */,
+				213E54912D0A8321003F2E5F /* HabitNoteView.swift */,
 				1EEAE0FF2C94C14400497F8F /* SubjectsPage.swift */,
 				1EEAE1012C94C16300497F8F /* AddSubjectView.swift */,
 				1EEAE0F52C948E7300497F8F /* AddActivity.swift */,
